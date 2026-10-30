@@ -1,0 +1,7 @@
+{
+  "port": 3001,
+  "sentFolder": "[Gmail]/Sent Mail",
+  "whatsappUrl": "",
+  "listLimit": 50,
+  "sessionHours": 24
+}

@@ -1,0 +1,14 @@
+services:
+  alimail:
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "3001:3001"
+    volumes:
+      - alimail-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  alimail-data:

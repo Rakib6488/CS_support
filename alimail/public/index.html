@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alimail</title>
+<style>
+  :root {
+    --bg: #f4f5f9; --panel: #ffffff; --line: #e6e8ef; --ink: #1d2330; --muted: #7b8190;
+    --red: #ef4b3c; --red-dark: #d93a2b; --chip: #eef0f7; --active: #eef3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .hide { display: none !important; }
+  .spacer { flex: 1; }
+
+  /* Top bar */
+  .top { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; min-width: 210px; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 15px; }
+  .tag { font-size: 11px; font-weight: 500; color: var(--muted); background: var(--chip); border-radius: 5px; padding: 2px 6px; }
+  .search { flex: 0 1 460px; }
+  .search input { width: 100%; height: 36px; border: 1px solid var(--line); border-radius: 10px; padding: 0 14px; background: var(--bg); outline: none; }
+  .search input:focus { border-color: var(--red); background: #fff; }
+  .navlink { background: none; border: 0; cursor: pointer; padding: 8px 10px; border-radius: 8px; font-size: 14px; text-decoration: none; color: var(--ink); }
+  .navlink:hover { background: var(--chip); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #2f8cf0; color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 14px; flex: none; }
+  .icon { background: none; border: 0; cursor: pointer; padding: 6px 8px; border-radius: 8px; color: var(--muted); font-size: 16px; }
+  .icon:hover { background: var(--chip); color: var(--ink); }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 230px 400px 1fr; height: calc(100vh - 56px); }
+
+  /* Sidebar */
+  .side { background: var(--panel); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .compose { background: var(--red); color: #fff; border: 0; border-radius: 12px; height: 46px; font-weight: 600; font-size: 15px; cursor: pointer; margin-bottom: 18px; box-shadow: 0 4px 12px rgba(239, 75, 60, .3); }
+  .compose:hover { background: var(--red-dark); }
+  .sec { font-size: 13px; color: var(--muted); padding: 14px 10px 6px; }
+  .fold { display: flex; align-items: center; justify-content: space-between; background: none; border: 0; text-align: left; padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 14.5px; }
+  .fold:hover { background: var(--bg); }
+  .fold.on { background: var(--chip); font-weight: 600; }
+  .fold b { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .fold b.red { background: var(--red); color: #fff; border-radius: 999px; padding: 1px 7px; }
+  .queue { margin-top: auto; font-size: 12px; color: var(--muted); padding: 14px 10px 0; }
+
+  /* List */
+  .list { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .listHead { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .listHead h2 { font-size: 18px; margin: 0; }
+  .chip { font-size: 11px; background: var(--chip); color: var(--muted); border-radius: 5px; padding: 2px 6px; font-weight: 600; }
+  .count { font-size: 13px; color: var(--muted); }
+  #items { overflow-y: auto; flex: 1; }
+  .item { display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: flex-start; position: relative; }
+  .item:hover { background: var(--bg); }
+  .item.active { background: var(--active); }
+  .item .avatar { width: 40px; height: 40px; font-size: 15px; }
+  .imain { flex: 1; min-width: 0; }
+  .itop { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .iname { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .itime { font-size: 12px; color: var(--muted); flex: none; }
+  .isub { font-size: 13.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iprev { font-size: 12.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item:not(.unread) .iname, .item:not(.unread) .isub { font-weight: 400; color: #4a5162; }
+  .item.unread .isub { font-weight: 700; }
+  .dot { position: absolute; left: 4px; top: 22px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+  .item:not(.unread) .dot { display: none; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 16px; line-height: 1.6; }
+  .empty.big { margin: auto; font-size: 15px; }
+
+  /* Detail */
+  .detail { background: var(--panel); display: flex; flex-direction: column; min-width: 0; overflow-y: auto; }
+  .toolbar { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+  .tbtn { background: none; border: 1px solid transparent; border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 14px; }
+  .tbtn:hover { background: var(--chip); }
+  .dwrap { padding: 20px 28px; display: flex; flex-direction: column; gap: 16px; }
+  .dsub { font-size: 22px; margin: 0; font-weight: 600; }
+  .dmeta { color: var(--muted); font-size: 13px; margin-top: -10px; }
+  .msg { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: #fff; }
+  .mhead { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; margin-bottom: 10px; }
+  .mhead span { font-weight: 400; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .mbody { white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; font-size: 14.5px; margin: 0; }
+
+  /* Composer */
+  .composer { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .chead { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; flex-wrap: wrap; }
+  .chead b { color: var(--ink); font-weight: 600; }
+  .chead input { flex: 1; min-width: 200px; }
+  .crow { display: flex; gap: 10px; }
+  .crow select { width: 210px; flex: none; }
+  .crow input { flex: 1; }
+  .field { border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; background: #fff; }
+  .field:focus { outline: none; border-color: var(--red); }
+  textarea.field { resize: vertical; min-height: 120px; }
+  .cfoot { display: flex; align-items: center; gap: 12px; }
+  .btn { background: var(--red); color: #fff; border: 0; border-radius: 9px; padding: 9px 18px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--red-dark); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+
+  /* Login */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .loginCard { width: 100%; max-width: 380px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 28px; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
+  .loginCard h2 { margin: 14px 0 4px; }
+  .loginCard p { color: var(--muted); margin: 0 0 16px; }
+  .loginCard label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .loginCard .btn { width: 100%; justify-content: center; height: 42px; }
+  .err { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 8px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .25s; pointer-events: none; font-size: 14px; z-index: 99; }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><div class="logo">✉</div>Alimail <span class="tag">Support</span></div>
+  <div class="search"><input id="search" type="search" placeholder="Search mail"></div>
+  <span class="spacer"></span>
+  <a id="waLink" class="navlink hide" target="_blank" rel="noopener">WhatsApp</a>
+  <button class="navlink" id="refresh">Refresh</button>
+  <div class="avatar" id="meAvatar">A</div>
+  <button class="icon" id="logout" title="Log out">⎋</button>
+</header>
+
+<!-- Login -->
+<div class="login" id="login">
+  <form class="loginCard" id="loginForm">
+    <div class="logo">✉</div>
+    <h2>Sign in to Alimail</h2>
+    <p>Support inbox for your team.</p>
+    <label>Username <input class="field" id="lu" autocomplete="username" autocapitalize="none"></label>
+    <label>Password <input class="field" id="lp" type="password" autocomplete="current-password"></label>
+    <button class="btn" type="submit">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</div>
+
+<!-- App -->
+<div class="app hide" id="app">
+  <aside class="side">
+    <button class="compose" id="composeBtn">+ Compose</button>
+    <div class="sec">Favorites</div>
+    <button class="fold on" data-view="open"><span>Inbox</span><b id="cInbox" class="red"></b></button>
+    <button class="fold" data-view="unread"><span>Unread</span><b id="cUnread"></b></button>
+    <button class="fold" data-view="closed"><span>Completed</span><b id="cDone"></b></button>
+    <div class="sec">Folders</div>
+    <button class="fold" data-view="all"><span>All mail</span></button>
+    <div class="queue">Mail queue: FIFO, oldest first</div>
+  </aside>
+
+  <section class="list">
+    <div class="listHead">
+      <h2 id="listTitle">Inbox</h2>
+      <span class="chip">FIFO</span>
+      <span class="count" id="listCount"></span>
+      <span class="spacer"></span>
+      <button class="icon" id="refresh2" title="Refresh">↻</button>
+    </div>
+    <div id="items"></div>
+  </section>
+
+  <section class="detail" id="detail"></section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const FOLDERS = { open: 'Inbox', unread: 'Unread', closed: 'Completed', all: 'All mail' };
+const COLORS = ['#5b5bd6', '#e6497a', '#1f9d7a', '#d9822b', '#3a86c8', '#8e5bd0'];
+const TEMPLATES = [
+  { name: 'Request received', subject: 'We received your request', body: 'Hello,\n\nThank you for contacting us. We have received your request and our team is looking into it. We will get back to you shortly.\n\nBest regards,\nSupport team' },
+  { name: 'Request approved', subject: 'Your request is approved', body: 'Hello,\n\nYour request has been approved. Please let us know if you need anything else.\n\nBest regards,\nSupport team' },
+  { name: 'Need more info', subject: 'More information needed', body: 'Hello,\n\nTo help you further, could you please share more details about your issue?\n\nBest regards,\nSupport team' },
+  { name: 'Issue resolved', subject: 'Your issue is resolved', body: 'Hello,\n\nWe are glad to let you know that your issue has been resolved. Thank you for your patience.\n\nBest regards,\nSupport team' },
+];
+
+let token = sessionStorage.getItem('am_token') || '';
+let view = 'open', threads = [], counts = {}, cur = null, detail = null, composing = false, search = '', pollT = null;
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove('on'), 3500);
+}
+function initial(s) { return (s || '?').trim().charAt(0).toUpperCase(); }
+function colorFor(s) {
+  let h = 0;
+  for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return COLORS[h % COLORS.length];
+}
+function cleanSub(s) { return String(s || '').replace(/^((re|fwd?|fw)\s*:\s*)+/i, '').trim() || '(no subject)'; }
+function fmtShort(ms) {
+  if (!ms) return '';
+  const d = new Date(ms), now = new Date();
+  return d.toDateString() === now.toDateString()
+    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+function fmtFull(ms) {
+  return ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: opts.body,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { logout('Your session expired. Please sign in again.'); throw new Error('Session expired'); }
+  if (!r.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+
+/* ---------- Login ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('loginErr').textContent = '';
+  const r = await fetch('/api/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: $('lu').value, password: $('lp').value }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $('loginErr').textContent = j.error || 'Login failed'; return; }
+  token = j.token;
+  sessionStorage.setItem('am_token', token);
+  sessionStorage.setItem('am_user', $('lu').value);
+  setWhatsApp(j.whatsappUrl);
+  $('lp').value = '';
+  enter();
+});
+
+function setWhatsApp(url) {
+  if (!url) return;
+  $('waLink').href = url;
+  $('waLink').classList.remove('hide');
+}
+
+function enter() {
+  $('login').classList.add('hide');
+  $('app').classList.remove('hide');
+  $('meAvatar').textContent = initial(sessionStorage.getItem('am_user') || 'A');
+  loadList().catch((e) => toast(e.message));
+  clearInterval(pollT);
+  pollT = setInterval(poll, 15000);
+}
+
+function logout(msg) {
+  token = ''; sessionStorage.removeItem('am_token'); sessionStorage.removeItem('am_user');
+  clearInterval(pollT);
+  cur = null; detail = null; composing = false; threads = [];
+  $('app').classList.add('hide');
+  $('login').classList.remove('hide');
+  $('loginErr').textContent = msg || '';
+}
+$('logout').addEventListener('click', () => logout('You have been signed out.'));
+
+/* ---------- Folders and list ---------- */
+document.querySelectorAll('.fold').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+
+function setView(v) {
+  view = v; cur = null; detail = null; composing = false;
+  $('search').value = ''; search = '';
+  renderDetail();
+  loadList().catch((e) => toast(e.message));
+}
+
+async function loadList() {
+  const r = await api('/api/threads?view=' + view);
+  threads = r.items; counts = r.counts;
+  renderSide(); renderList();
+}
+
+function renderSide() {
+  const inb = $('cInbox');
+  inb.textContent = counts.open || '';
+  inb.classList.toggle('red', !!counts.open);
+  $('cUnread').textContent = counts.unread || '';
+  $('cDone').textContent = counts.closed || '';
+  document.querySelectorAll('.fold').forEach((b) => b.classList.toggle('on', !composing && b.dataset.view === view));
+  $('listTitle').textContent = FOLDERS[view];
+}
+
+function renderList() {
+  const box = $('items');
+  box.innerHTML = '';
+  const q = search.toLowerCase();
+  // FIFO: oldest mail first, like the design
+  const rows = threads.slice().sort((a, b) => a.lastDate - b.lastDate).filter((t) => {
+    if (!q) return true;
+    return (t.contact.name + ' ' + t.contact.address + ' ' + t.subject).toLowerCase().includes(q);
+  });
+  $('listCount').textContent = rows.length;
+  if (!rows.length) {
+    box.appendChild(el('div', 'empty', search ? 'No matches.' : 'Nothing here yet.'));
+    return;
+  }
+  rows.forEach((t) => {
+    const name = t.contact.name || t.contact.address || 'Unknown';
+    const row = el('div', 'item' + (t.unread ? ' unread' : '') + (cur === t.id && !composing ? ' active' : ''));
+    row.appendChild(el('span', 'dot'));
+    const av = el('div', 'avatar', initial(name));
+    av.style.background = colorFor(name);
+    row.appendChild(av);
+    const main = el('div', 'imain');
+    const top = el('div', 'itop');
+    top.appendChild(el('span', 'iname', name));
+    top.appendChild(el('span', 'itime', fmtShort(t.lastDate)));
+    main.appendChild(top);
+    main.appendChild(el('div', 'isub', cleanSub(t.subject)));
+    main.appendChild(el('div', 'iprev', (t.lastFromMe ? 'You: ' : '') + (t.preview || '')));
+    row.appendChild(main);
+    row.addEventListener('click', () => selectThread(t.id));
+    box.appendChild(row);
+  });
+}
+
+$('search').addEventListener('input', (e) => { search = e.target.value.trim(); renderList(); });
+$('refresh').addEventListener('click', refreshAll);
+$('refresh2').addEventListener('click', refreshAll);
+function refreshAll() {
+  loadList().catch((e) => toast(e.message));
+  if (cur && !composing) loadDetail(cur, true);
+}
+
+/* ---------- Reading a mail (thread) ---------- */
+function selectThread(id) {
+  cur = id; composing = false; detail = null;
+  renderList(); renderSide();
+  $('detail').innerHTML = '';
+  $('detail').appendChild(el('div', 'empty big', 'Loading...'));
+  loadDetail(id, false);
+}
+
+async function loadDetail(id, silent) {
+  try {
+    const d = await api('/api/threads/' + encodeURIComponent(id));
+    if (cur !== id) return;
+    detail = d;
+    renderDetail();
+    loadList().catch(() => {});
+  } catch (e) {
+    if (!silent) toast(e.message);
+  }
+}
+
+function renderDetail() {
+  const box = $('detail');
+  box.innerHTML = '';
+  if (composing) { box.appendChild(composer({ reply: false })); return; }
+  if (!cur || !detail) { box.appendChild(el('div', 'empty big', 'Select a mail to read it, or press Compose.')); return; }
+
+  const bar = el('div', 'toolbar');
+  const replyBtn = el('button', 'tbtn', '↩ Reply');
+  replyBtn.addEventListener('click', () => {
+    const t = box.querySelector('#replyBox textarea');
+    if (t) t.focus();
+  });
+  bar.appendChild(replyBtn);
+  const open = detail.status === 'open';
+  const doneBtn = el('button', 'tbtn', open ? '✓ Mark as Completed' : '↺ Reopen');
+  doneBtn.addEventListener('click', toggleStatus);
+  bar.appendChild(doneBtn);
+  box.appendChild(bar);
+
+  const wrap = el('div', 'dwrap');
+  wrap.appendChild(el('h1', 'dsub', cleanSub(detail.subject)));
+  wrap.appendChild(el('div', 'dmeta', (detail.contact.address || '') + '  ·  ' + detail.messages.length + ' messages'));
+
+  detail.messages.forEach((m) => {
+    const card = el('div', 'msg');
+    const head = el('div', 'mhead');
+    const who = m.fromMe ? 'You' : (m.from.name || m.from.address || 'Unknown');
+    head.appendChild(el('span', '', who));
+    head.appendChild(el('span', '', fmtFull(m.date)));
+    card.appendChild(head);
+    card.appendChild(el('div', 'mbody', m.text || '(no text content)'));
+    wrap.appendChild(card);
+  });
+
+  const rep = composer({ reply: true, to: detail.contact.address || '', subject: 'Re: ' + cleanSub(detail.subject) });
+  rep.id = 'replyBox';
+  wrap.appendChild(rep);
+  box.appendChild(wrap);
+}
+
+async function toggleStatus() {
+  const to = detail.status === 'open' ? 'closed' : 'open';
+  try {
+    await api('/api/threads/' + encodeURIComponent(cur) + '/status', { method: 'POST', body: JSON.stringify({ status: to }) });
+    toast(to === 'closed' ? 'Marked as completed' : 'Moved back to inbox');
+    detail.status = to;
+    renderDetail();
+    loadList();
+  } catch (e) { toast(e.message); }
+}
+
+/* ---------- Composer (reply and new mail) ---------- */
+function composer(o) {
+  const wrap = el('div', 'composer');
+
+  const head = el('div', 'chead');
+  head.appendChild(el('span', '', o.reply ? 'Reply to' : 'To'));
+  let toIn = null;
+  if (o.reply) head.appendChild(el('b', '', o.to));
+  else {
+    toIn = el('input', 'field');
+    toIn.type = 'email'; toIn.placeholder = 'name@example.com';
+    head.appendChild(toIn);
+  }
+
+  const row = el('div', 'crow');
+  const tpl = el('select', 'field');
+  tpl.appendChild(new Option('Insert template...', ''));
+  TEMPLATES.forEach((t, i) => tpl.appendChild(new Option(t.name, String(i))));
+  const subj = el('input', 'field');
+  subj.placeholder = 'Subject';
+  subj.value = o.subject || '';
+  row.appendChild(tpl); row.appendChild(subj);
+
+  const ta = el('textarea', 'field');
+  ta.rows = 7;
+  ta.placeholder = 'Write your reply. The Alimail layout is added automatically.';
+
+  tpl.addEventListener('change', () => {
+    const t = TEMPLATES[tpl.value];
+    if (!t) return;
+    ta.value = ta.value ? ta.value + '\n\n' + t.body : t.body;
+    if (!o.reply) subj.value = t.subject;
+    tpl.value = '';
+    ta.focus();
+  });
+
+  const foot = el('div', 'cfoot');
+  const send = el('button', 'btn', '➤ Send');
+  send.type = 'button';
+  foot.appendChild(send);
+  foot.appendChild(el('span', 'hint', 'Ctrl + Enter to send'));
+
+  const doSend = async () => {
+    const to = o.reply ? o.to : toIn.value.trim();
+    const body = ta.value.trim();
+    if (!to || !body) { toast('Recipient and message are required'); return; }
+    send.disabled = true; send.textContent = 'Sending...';
+    try {
+      if (o.reply) {
+        await api('/api/threads/' + encodeURIComponent(cur) + '/reply', {
+          method: 'POST', body: JSON.stringify({ body, subject: subj.value }),
+        });
+        toast('Mail sent');
+        ta.value = '';
+        await loadDetail(cur, false);
+      } else {
+        await api('/api/compose', {
+          method: 'POST', body: JSON.stringify({ to, subject: subj.value, body }),
+        });
+        toast('Mail sent');
+        composing = false; cur = null; detail = null;
+        renderDetail();
+        loadList();
+      }
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      send.disabled = false; send.textContent = '➤ Send';
+    }
+  };
+  send.addEventListener('click', doSend);
+  ta.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doSend(); }
+  });
+
+  wrap.appendChild(head);
+  wrap.appendChild(row);
+  wrap.appendChild(ta);
+  wrap.appendChild(foot);
+  return wrap;
+}
+
+$('composeBtn').addEventListener('click', () => {
+  composing = true; cur = null; detail = null;
+  renderList(); renderSide(); renderDetail();
+});
+
+/* ---------- Polling ---------- */
+function poll() {
+  if (document.hidden || !token) return;
+  loadList().catch(() => {});
+  if (cur && !composing) loadDetail(cur, true);
+}
+
+/* ---------- Start ---------- */
+renderDetail();
+fetch('/api/config').then((r) => r.json()).then((j) => setWhatsApp(j.whatsappUrl)).catch(() => {});
+if (token) enter();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Runtime state and generated cache
+alimail/data/
+whatsapp-bridge/.wwebjs_cache/
+whatsapp-bridge/.wwebjs_auth/
+whatsapp-bridge/data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
