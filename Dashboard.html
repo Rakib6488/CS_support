@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= include('Styles') ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .screen { display: none; }
+  .screen.on { display: grid; }
+
+  /* ---------- Admin shell ---------- */
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 252px; flex: none; background: var(--brand-dark); color: #E6F4F1; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; z-index: 40; }
+  .side-brand { display: flex; align-items: center; gap: 12px; padding: 18px 18px 12px; }
+  .side-brand .logo { width: 38px; height: 38px; border-radius: 11px; background: rgba(255, 255, 255, .16); display: grid; place-items: center; flex: none; }
+  .side-brand b { display: block; font-size: 15px; font-weight: 700; color: #fff; }
+  .side-brand span { font-size: 12px; opacity: .72; }
+  #nav { flex: 1; overflow-y: auto; padding: 4px 10px 14px; }
+  .nav-group { margin-top: 16px; }
+  .nav-group h6 { margin: 0 10px 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 10px; border: 0; background: none; color: inherit; border-radius: 8px; cursor: pointer; text-align: left; font-weight: 500; font-size: 14px; }
+  .nav-item:hover { background: rgba(255, 255, 255, .08); }
+  .nav-item.on { background: rgba(255, 255, 255, .17); color: #fff; }
+  .nav-item svg { width: 18px; height: 18px; flex: none; opacity: .92; }
+  .navBadge { margin-left: auto; background: var(--accent); color: #06281F; font-weight: 700; font-size: 11.5px; border-radius: 999px; padding: 0 7px; display: none; }
+  .side-foot { border-top: 1px solid rgba(255, 255, 255, .14); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .side-foot .avatar { background: rgba(255, 255, 255, .18); color: #fff; }
+  .side-foot .who { flex: 1; min-width: 0; }
+  .side-foot .who b { display: block; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side-foot .who span { font-size: 12px; opacity: .72; }
+  .side-foot .iconBtn { border-color: rgba(255, 255, 255, .32); color: #fff; }
+  .side-foot .iconBtn:hover { background: rgba(255, 255, 255, .1); }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+  #menuToggle { display: none; }
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; min-width: 0; }
+  .crumbs .link { color: var(--muted); font-weight: 500; }
+  .crumbs .sep { color: var(--line-strong); }
+  .filterbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .filterbar .field { width: auto; min-width: 140px; }
+  #customDates { display: none; gap: 12px; }
+  #customDates.on { display: flex; }
+  .rangeNote { padding: 8px 24px 0; color: var(--muted); font-size: 12.5px; }
+  .content { padding: 20px 24px 56px; width: 100%; max-width: 1380px; }
+  .pagehead { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+  .pagehead h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .pagehead p { margin: 3px 0 0; color: var(--muted); max-width: 720px; }
+  .pagehead .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid2 > .card, .grid-main > .card { margin: 0; }
+  .grid-main { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 14px; margin-bottom: 14px; align-items: start; }
+  .chartBox { position: relative; height: 270px; }
+  .card h3 { font-size: 15px; }
+  .card .sub { margin: 2px 0 12px; }
+  .stack > * + * { margin-top: 14px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+  .toolbar .field { width: auto; min-width: 130px; }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+  .errbox { background: var(--danger-soft); color: var(--danger); border-radius: 10px; padding: 14px 16px; }
+  .profile { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .profile h2 { font-size: 20px; }
+  .profile .meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .linkRow { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .linkRow:last-child { border-bottom: 0; }
+  .linkLine { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .linkLine .field { flex: 1; min-width: 240px; }
+  dl.defs { margin: 0; display: grid; grid-template-columns: 210px 1fr; gap: 10px 18px; font-size: 13.5px; }
+  dl.defs dt { font-weight: 600; }
+  dl.defs dd { margin: 0; color: var(--muted); line-height: 1.5; }
+  .radio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; margin-bottom: 8px; }
+  .radio input { margin-top: 3px; accent-color: var(--brand); }
+  .radio b { display: block; font-weight: 600; }
+  .radio span { color: var(--muted); font-size: 12.5px; }
+  .cred { background: var(--panel-2); border: 1px dashed var(--line-strong); border-radius: 10px; padding: 14px; margin-top: 12px; }
+  .cred div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+  .cred code { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+
+  /* transcript (read-only chat view) */
+  .transcript { background: var(--chat-bg); border-radius: 10px; padding: 14px; max-height: 68vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .dayChip { align-self: center; background: var(--panel); color: var(--muted); font-size: 12px; padding: 3px 11px; border-radius: 8px; margin: 8px 0 4px; }
+  .bubble { max-width: 78%; padding: 7px 11px 6px; border-radius: 10px; background: var(--in); box-shadow: 0 1px 1px rgba(17, 27, 33, .12); overflow-wrap: anywhere; align-self: flex-start; border-top-left-radius: 2px; }
+  .bubble.out { align-self: flex-end; background: var(--out); border-top-left-radius: 10px; border-top-right-radius: 2px; }
+  .bubble .who { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+  .bubble .text { white-space: pre-wrap; }
+  .bubble .text.deleted { font-style: italic; color: var(--muted); }
+  .bubble .quote { border-left: 3px solid var(--brand); background: rgba(127, 127, 127, .14); padding: 3px 8px; border-radius: 4px; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .bubble .media { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .bubble .meta { text-align: right; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  @media (max-width: 1000px) {
+    .sidebar { position: fixed; left: -270px; transition: left .2s; }
+    .sidebar.open { left: 0; box-shadow: 10px 0 30px rgba(0, 0, 0, .3); }
+    #menuToggle { display: inline-flex; }
+    .content, .topbar, .filterbar { padding-left: 14px; padding-right: 14px; }
+    .grid2, .grid-main { grid-template-columns: 1fr; }
+    dl.defs { grid-template-columns: 1fr; }
+    .pagehead { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sign in -->
+<div class="screen auth on" id="loginScreen">
+  <div class="auth-brand">
+    <div class="auth-logo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg></div>
+    <h1>Admin Portal</h1>
+    <p>Manage your team, watch every conversation and call, and see how fast customers get answers.</p>
+    <ul class="auth-points">
+      <li><i>1</i>Create agents and control what each role can see</li>
+      <li><i>2</i>Live reports connected to chats, agents and calls</li>
+      <li><i>3</i>Export any report as CSV</li>
+    </ul>
+  </div>
+  <div class="auth-panel">
+    <form class="auth-card" id="loginForm">
+      <h2>Administrator sign in</h2>
+      <p>Only administrators can open this portal.</p>
+      <label class="lbl">Username
+        <input id="user" class="field" type="text" autocomplete="username" autocapitalize="none" autofocus>
+      </label>
+      <label class="lbl">Password
+        <div class="pw-wrap">
+          <input id="pw" class="field" type="password" autocomplete="current-password">
+          <button type="button" id="pwToggle">Show</button>
+        </div>
+      </label>
+      <button class="btn block" id="loginBtn" type="submit">Sign in</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div class="shell hide" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">
+      <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
+      <div><b>Admin Portal</b><span>WhatsApp workspace</span></div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="side-foot">
+      <div class="avatar sm" id="meInitial"></div>
+      <div class="who"><b id="meName"></b><span>Administrator</span></div>
+      <button class="iconBtn" id="logout">Log out</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="iconBtn" id="menuToggle">Menu</button>
+      <div class="crumbs" id="crumbs"></div>
+      <span class="spacer"></span>
+      <span class="pill" id="bridgePill">Checking...</span>
+      <button class="iconBtn" id="refresh">Refresh</button>
+    </header>
+    <div class="filterbar hide" id="filterbar">
+      <label class="lbl">Date range
+        <select class="field" id="range">
+          <option value="today">Today</option>
+          <option value="7d" selected>Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="all">All time</option>
+          <option value="custom">Custom dates</option>
+        </select>
+      </label>
+      <div id="customDates">
+        <label class="lbl">From <input class="field" type="date" id="fromDate"></label>
+        <label class="lbl">To <input class="field" type="date" id="toDate"></label>
+      </div>
+      <label class="lbl">Chat type
+        <select class="field" id="type">
+          <option value="all">Individual and group</option>
+          <option value="individual">Individual only</option>
+          <option value="group">Group only</option>
+        </select>
+      </label>
+      <label class="lbl">SLA target (minutes)
+        <input class="field" type="number" min="1" max="1440" id="slaMin" value="10" style="min-width:110px;width:110px">
+      </label>
+      <button class="btn" id="apply">Apply</button>
+    </div>
+    <div class="rangeNote" id="rangeNote"></div>
+    <main class="content" id="content"><div id="view"></div></main>
+  </div>
+</div>
+
+<!-- Agent form -->
+<div class="modalWrap" id="agentModal">
+  <div class="modal">
+    <div class="modalHead"><h2 id="agTitle">Add agent</h2><button class="iconBtn" id="agClose">Close</button></div>
+    <form id="agentForm">
+      <div class="formGrid">
+        <label class="lbl full">Full name <input class="field" id="agName" maxlength="60" placeholder="e.g. Rakib Hasan"></label>
+        <label class="lbl">Username <input class="field" id="agUser" maxlength="30" autocapitalize="none" placeholder="e.g. rakib"></label>
+        <label class="lbl">Role
+          <select class="field" id="agRole">
+            <option value="agent">Agent</option>
+            <option value="caller">Call agent</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <div class="hint full" id="roleHint"></div>
+        <label class="lbl full">Password
+          <div class="pw-wrap">
+            <input class="field" id="agPass" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+            <button type="button" id="agPassToggle">Show</button>
+          </div>
+          <span class="hint" id="passHint"></span>
+        </label>
+        <div class="full row">
+          <button class="btn ghost small" type="button" id="agGen">Generate password</button>
+          <span class="spacer"></span>
+          <label class="switch"><input type="checkbox" id="agActive" checked><span>Account is active</span></label>
+        </div>
+      </div>
+      <div class="err" id="agErr"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button class="btn ghost" type="button" id="agCancel">Cancel</button>
+        <button class="btn" type="submit" id="agSave">Save</button>
+      </div>
+    </form>
+    <div class="hide" id="agDone">
+      <p class="muted" style="margin-top:0">The account is ready. Share these sign-in details with the agent. The password is shown only now.</p>
+      <div class="cred">
+        <div><span class="muted">Username</span><code id="credUser"></code></div>
+        <div><span class="muted">Password</span><code id="credPass"></code></div>
+        <div><span class="muted">Sign-in page</span><code id="credPage"></code></div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:14px">
+        <button class="btn ghost" type="button" id="credCopy">Copy details</button>
+        <button class="btn" type="button" id="credClose">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  /* ==========================================================================
+     State
+     ========================================================================== */
+  let TOKEN = '', DATA = null, dataPromise = null, TEAM = null;
+  let view = { id: 'overview', arg: '' }, renderSeq = 0, editing = null;
+  const charts = {};
+  const $ = (id) => document.getElementById(id);
+
+  function run(fn, ...args) {
+    return new Promise((res, rej) => {
+      const r = google.script.run
+        .withSuccessHandler(res)
+        .withFailureHandler((e) => {
+          const m = (e && e.message) || String(e);
+          if (m.indexOf('SESSION_EXPIRED') >= 0) logout('Your session expired. Please sign in again.');
+          rej(new Error(m.replace(/^Error:\s*/, '')));
+        });
+      r[fn](...args);
+    });
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { t.style.display = 'none'; }, 4000);
+  }
+
+  /* ---------- Formatting ---------- */
+  function fmtDur(sec) {
+    if (sec == null) return '-';
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
+  }
+  function fmtMin(min) {
+    if (min < 60) return min + ' min';
+    if (min < 1440) return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
+    return Math.floor(min / 1440) + 'd ' + Math.floor((min % 1440) / 60) + 'h';
+  }
+  function fmtDT(ms) { return ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'; }
+  function fmtDate(ms) { return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function ymd(d) {
+    const m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  function pct(v) { return v == null ? '-' : v + '%'; }
+  const ROLE_LABEL = { admin: 'Admin', agent: 'Agent', caller: 'Call agent' };
+
+  /* ---------- Icons (drawn with SVG paths, no external files) ---------- */
+  const ICONS = {
+    home: ['M3 11l9-8 9 8', 'M5 10v10h14V10'],
+    users: ['M9 11a3 3 0 100-6 3 3 0 000 6z', 'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6', 'M16 5.2a3 3 0 010 5.6', 'M18 14.2c2 .7 3 2.6 3 5.8'],
+    chart: ['M4 20V4', 'M4 20h16', 'M8 16v-5', 'M12 16V8', 'M16 16v-3'],
+    chat: ['M4 5h16v11H9l-5 4z'],
+    alert: ['M12 3l10 18H2z', 'M12 10v5', 'M12 18h.01'],
+    calendar: ['M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z', 'M3 10h18', 'M8 3v4', 'M16 3v4'],
+    phone: ['M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z'],
+    bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
+    sliders: ['M4 7h16', 'M4 17h16', 'M9 7m-2 0a2 2 0 104 0 2 2 0 10-4 0', 'M15 17m-2 0a2 2 0 104 0 2 2 0 10-4 0'],
+    link: ['M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1', 'M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1'],
+    download: ['M12 3v12', 'M7 10l5 5 5-5', 'M4 21h16'],
+    book: ['M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z', 'M8 7h7'],
+  };
+  function icon(name) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('fill', 'none');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '1.8');
+    s.setAttribute('stroke-linecap', 'round');
+    s.setAttribute('stroke-linejoin', 'round');
+    (ICONS[name] || []).forEach((d) => {
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d);
+      s.appendChild(p);
+    });
+    return s;
+  }
+
+  /* ==========================================================================
+     Sign in / out
+     ========================================================================== */
+  $('pwToggle').addEventListener('click', () => {
+    const f = $('pw'), show = f.type === 'password';
+    f.type = show ? 'text' : 'password';
+    $('pwToggle').textContent = show ? 'Hide' : 'Show';
+  });
+  $('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = $('loginBtn');
+    btn.disabled = true; $('loginErr').textContent = '';
+    run('login', $('user').value, $('pw').value).then((r) => {
+      if (r.role !== 'admin') throw new Error('Only administrators can open the admin portal.');
+      TOKEN = r.token;
+      $('meName').textContent = r.name;
+      $('meInitial').textContent = (r.name || '?').trim().charAt(0);
+      $('pw').value = '';
+      $('loginScreen').classList.remove('on');
+      $('app').classList.remove('hide');
+      buildNav();
+      go('overview');
+      ensureData().catch(() => {});
+      refreshBridge();
+      if (!refreshBridge.timer) refreshBridge.timer = setInterval(refreshBridge, 60000);
+    }).catch((err) => { $('loginErr').textContent = err.message; })
+      .then(() => { btn.disabled = false; });
+  });
+  function logout(msg) {
+    TOKEN = ''; DATA = null; dataPromise = null; TEAM = null;
+    clearInterval(refreshBridge.timer); refreshBridge.timer = null;
+    destroyCharts();
+    $('app').classList.add('hide');
+    $('agentModal').classList.remove('on');
+    $('loginScreen').classList.add('on');
+    $('loginErr').textContent = msg || '';
+  }
+  $('logout').addEventListener('click', () => logout('You have been signed out.'));
+
+  function refreshBridge() {
+    if (!TOKEN) return;
+    run('getSettings', TOKEN).then((s) => {
+      const ok = s.bridge.status === 'ready';
+      const p = $('bridgePill');
+      p.textContent = ok ? 'WhatsApp connected' : 'WhatsApp not connected';
+      p.className = 'pill ' + (ok ? 'green' : 'red');
+    }).catch(() => {});
+  }
+
+  /* ==========================================================================
+     Navigation
+     ========================================================================== */
+  const NAV = [
+    { group: 'Overview', items: [{ id: 'overview', label: 'Dashboard', icon: 'home' }] },
+    { group: 'People', items: [{ id: 'team', label: 'Team', icon: 'users' }, { id: 'agents', label: 'Agent performance', icon: 'chart' }] },
+    { group: 'Conversations', items: [{ id: 'chats', label: 'Chats', icon: 'chat' }, { id: 'pending', label: 'Pending', icon: 'alert', badge: true }, { id: 'days', label: 'Date and time', icon: 'calendar' }, { id: 'mail', label: 'Mail', icon: 'chat' }] },
+    { group: 'Calls', items: [{ id: 'calls', label: 'Calls', icon: 'phone' }] },
+    { group: 'Manage', items: [{ id: 'quick', label: 'Quick replies', icon: 'bolt' }, { id: 'settings', label: 'Settings', icon: 'sliders' }, { id: 'links', label: 'Portal links', icon: 'link' }] },
+    { group: 'Data', items: [{ id: 'export', label: 'Export CSV', icon: 'download' }, { id: 'guide', label: 'Guide', icon: 'book' }] },
+  ];
+  // title, whether the filter bar shows, which menu item stays highlighted, and the parent page of a detail page
+  const META = {
+    overview: { title: 'Dashboard', filters: true, nav: 'overview' },
+    team: { title: 'Team', nav: 'team' },
+    agents: { title: 'Agent performance', filters: true, nav: 'agents' },
+    agent: { title: 'Agent', filters: true, nav: 'team', parent: 'team' },
+    chats: { title: 'Chats', filters: true, nav: 'chats' },
+    chat: { title: 'Chat', nav: 'chats', parent: 'chats' },
+    pending: { title: 'Pending chats', filters: true, nav: 'pending' },
+    days: { title: 'Date and time', filters: true, nav: 'days' },
+    mail: { title: 'Mail', filters: true, nav: 'mail' },
+    calls: { title: 'Calls', nav: 'calls' },
+    quick: { title: 'Quick replies', nav: 'quick' },
+    settings: { title: 'Settings', nav: 'settings' },
+    links: { title: 'Portal links', nav: 'links' },
+    export: { title: 'Export CSV', filters: true, nav: 'export' },
+    guide: { title: 'Guide', nav: 'guide' },
+  };
+
+  // page functions are declared below (function declarations are available from the start)
+  const PAGES = { overview: pageOverview, team: pageTeam, agents: pageAgents, agent: pageAgent, chats: pageChats, chat: pageChat, pending: pagePending, days: pageDays, mail: pageMail, calls: pageCalls, quick: pageQuick, settings: pageSettings, links: pageLinks, export: pageExport, guide: pageGuide };
+
+  function buildNav() {
+    const nav = $('nav');
+    nav.innerHTML = '';
+    NAV.forEach((g) => {
+      const box = el('div', 'nav-group');
+      box.appendChild(el('h6', '', g.group));
+      g.items.forEach((it) => {
+        const b = el('button', 'nav-item');
+        b.type = 'button';
+        b.dataset.id = it.id;
+        b.appendChild(icon(it.icon));
+        b.appendChild(el('span', '', it.label));
+        if (it.badge) { const n = el('span', 'navBadge'); n.id = 'navPending'; b.appendChild(n); }
+        b.addEventListener('click', () => go(it.id));
+        box.appendChild(b);
+      });
+      nav.appendChild(box);
+    });
+  }
+
+  function go(id, arg) {
+    view = { id: id, arg: arg || '' };
+    $('sidebar').classList.remove('open');
+    renderView();
+    window.scrollTo(0, 0);
+  }
+  $('menuToggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
+  $('refresh').addEventListener('click', () => { DATA = null; dataPromise = null; TEAM = null; refreshBridge(); renderView(); });
+
+  function setCrumbs(parts) {
+    const box = $('crumbs');
+    box.innerHTML = '';
+    parts.forEach((p, i) => {
+      if (i) box.appendChild(el('span', 'sep', '/'));
+      if (p.go) {
+        const a = el('a', 'link', p.label);
+        a.addEventListener('click', () => go(p.go));
+        box.appendChild(a);
+      } else {
+        box.appendChild(el('span', '', p.label));
+      }
+    });
+  }
+  function setLastCrumb(text) {
+    const box = $('crumbs');
+    if (box.lastChild) box.lastChild.textContent = text;
+  }
+
+  function renderView() {
+    const m = META[view.id];
+    document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('on', b.dataset.id === m.nav));
+    $('filterbar').classList.toggle('hide', !m.filters);
+    $('rangeNote').classList.toggle('hide', !m.filters);
+    if (m.parent) setCrumbs([{ label: META[m.parent].title, go: m.parent }, { label: view.arg || m.title }]);
+    else setCrumbs([{ label: m.title }]);
+    destroyCharts();
+    const v = $('view');
+    v.innerHTML = '';
+    const seq = ++renderSeq;
+    PAGES[view.id](v, view.arg, () => seq === renderSeq);
+  }
+
+  /* ---------- Filters and shared data ---------- */
+  $('range').addEventListener('change', () => {
+    const custom = $('range').value === 'custom';
+    $('customDates').classList.toggle('on', custom);
+    if (custom && !$('fromDate').value) {
+      const t = new Date(), f = new Date();
+      f.setDate(t.getDate() - 7);
+      $('fromDate').value = ymd(f); $('toDate').value = ymd(t);
+    }
+  });
+  function getFilter() {
+    return { range: $('range').value, fromDate: $('fromDate').value, toDate: $('toDate').value, type: $('type').value, sla: Number($('slaMin').value) || 0 };
+  }
+  $('apply').addEventListener('click', () => {
+    const f = getFilter();
+    if (f.range === 'custom' && (!f.fromDate || !f.toDate)) { toast('Choose both the From and To dates.'); return; }
+    DATA = null; dataPromise = null;
+    renderView();
+    ensureData().catch(() => {});
+  });
+
+  function ensureData() {
+    if (DATA) return Promise.resolve(DATA);
+    if (!dataPromise) {
+      dataPromise = run('getDashboard', TOKEN, getFilter()).then((d) => {
+        DATA = d; dataPromise = null;
+        afterData();
+        return d;
+      }, (err) => { dataPromise = null; throw err; });
+    }
+    return dataPromise;
+  }
+  function afterData() {
+    const d = DATA;
+    $('rangeNote').textContent = 'Showing ' + (d.range.fromMs ? fmtDate(d.range.fromMs) : 'the beginning') + ' to ' + fmtDate(d.range.toMs) + ' (timezone: ' + d.range.tz + ')';
+    const nb = $('navPending');
+    if (nb) { nb.textContent = d.totals.pendingChats; nb.style.display = d.totals.pendingChats > 0 ? 'inline-block' : 'none'; }
+    $('slaMin').value = d.totals.slaMin;
+  }
+  function loadTeam() {
+    if (TEAM) return Promise.resolve(TEAM);
+    return run('listTeam', TOKEN).then((l) => { TEAM = l; return l; });
+  }
+
+  /* ==========================================================================
+     Building blocks
+     ========================================================================== */
+  function head(v, title, sub, actions) {
+    const h = el('div', 'pagehead');
+    const t = el('div');
+    t.appendChild(el('h1', '', title));
+    if (sub) t.appendChild(el('p', '', sub));
+    h.appendChild(t);
+    if (actions && actions.length) {
+      const a = el('div', 'actions');
+      actions.forEach((x) => a.appendChild(x));
+      h.appendChild(a);
+    }
+    v.appendChild(h);
+  }
+  function button(label, cls, fn) {
+    const b = el('button', cls || 'btn', label);
+    b.type = 'button';
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function linkEl(text, fn) {
+    const a = el('a', 'link', text);
+    a.addEventListener('click', fn);
+    return a;
+  }
+  function loading(text) { return el('div', 'loading', text || 'Loading...'); }
+  function failed(box, err) { box.innerHTML = ''; box.appendChild(el('div', 'errbox', 'Could not load this page: ' + err.message)); }
+  function cardOf(title, sub, extra) {
+    const c = el('div', 'card');
+    if (title) {
+      const h = el('div', 'card-head');
+      const t = el('div');
+      t.appendChild(el('h3', '', title));
+      if (sub) t.appendChild(el('div', 'sub', sub));
+      h.appendChild(t);
+      if (extra) { h.appendChild(el('span', 'spacer')); h.appendChild(extra); }
+      c.appendChild(h);
+    }
+    return c;
+  }
+  function kpi(label, value, hint, o) {
+    o = o || {};
+    const k = el('div', 'kpi' + (o.warn ? ' warn' : ''));
+    k.appendChild(el('span', '', label));
+    k.appendChild(el('b', '', value));
+    k.appendChild(el('small', '', hint));
+    if (o.go) {
+      k.dataset.go = o.go[0];
+      k.tabIndex = 0;
+      k.addEventListener('click', () => go(o.go[0], o.go[1]));
+      k.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(o.go[0], o.go[1]); });
+    }
+    return k;
+  }
+  function statBox(label, value) {
+    const d = el('div', 'stat');
+    d.appendChild(el('b', '', value));
+    d.appendChild(el('span', '', label));
+    return d;
+  }
+  function table(headers, rows) {
+    const wrap = el('div', 'tableWrap');
+    const t = document.createElement('table');
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    headers.forEach((h) => hr.appendChild(el('th', h[1] ? 'num' : '', h[0])));
+    thead.appendChild(hr); t.appendChild(thead);
+    const tb = document.createElement('tbody');
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      r.forEach((c, i) => {
+        const td = el('td', (headers[i][1] ? 'num ' : '') + (headers[i][2] || ''));
+        if (c && c.nodeType) td.appendChild(c);
+        else if (c && typeof c === 'object' && c.pill) td.appendChild(el('span', 'pill ' + (c.cls || c.pill), c.pill));
+        else td.textContent = c == null ? '' : c;
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t);
+    return wrap;
+  }
+  function pillEl(text, cls) { return el('span', 'pill ' + (cls || ''), text); }
+  function person(name, sub, go, group) {
+    const w = el('div', 'cell-user');
+    w.appendChild(el('div', 'avatar sm' + (group ? ' group' : ''), (name || '?').trim().charAt(0)));
+    const t = el('div');
+    t.appendChild(go ? linkEl(name || '-', go) : el('b', '', name || '-'));
+    if (sub) t.appendChild(el('div', 'sub', sub));
+    w.appendChild(t);
+    return w;
+  }
+  function agentLink(username, name) {
+    return username ? linkEl(name || username, () => go('agent', username)) : (name || '-');
+  }
+  function emptyCard(text) { return el('div', 'empty', text); }
+
+  /* ---------- Charts (Chart.js) ---------- */
+  function destroyCharts() { Object.keys(charts).forEach((k) => { charts[k].destroy(); delete charts[k]; }); }
+  function canChart() { return typeof Chart !== 'undefined'; }
+  function chartCard(title, sub, id) {
+    const c = cardOf(title, sub);
+    if (!canChart()) { c.appendChild(el('div', 'errbox', 'The chart library did not load. Check your internet connection.')); return c; }
+    const box = el('div', 'chartBox');
+    const cv = document.createElement('canvas');
+    cv.id = id;
+    box.appendChild(cv);
+    c.appendChild(box);
+    return c;
+  }
+  function mk(id, cfg) {
+    if (!canChart() || !$(id)) return;
+    Chart.defaults.color = css('--muted');
+    Chart.defaults.borderColor = css('--line');
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    charts[id] = new Chart($(id).getContext('2d'), cfg);
+  }
+  function palette() { return [css('--brand'), css('--brand-dark'), '#34B7F1', '#E0A100', '#8E5BD0', '#E8590C', '#25D366', '#6B7C85']; }
+  function axisOpts(xTitle, yTitle, extra) {
+    const o = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { x: { title: { display: !!xTitle, text: xTitle } }, y: { beginAtZero: true, title: { display: !!yTitle, text: yTitle } } },
+    };
+    if (extra && extra.stacked) { o.scales.x.stacked = true; o.scales.y.stacked = true; }
+    if (extra && extra.horizontal) {
+      o.indexAxis = 'y';
+      o.scales = { x: { beginAtZero: true, title: { display: !!yTitle, text: yTitle } }, y: { title: { display: !!xTitle, text: xTitle } } };
+      o.plugins.legend = { display: false };
+    }
+    return o;
+  }
+  function doughnutOpts() {
+    return {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: { callbacks: { label: (c) => { const tot = c.dataset.data.reduce((a, b) => a + b, 0); return c.label + ': ' + c.parsed + ' (' + (tot ? Math.round(c.parsed * 100 / tot) : 0) + '%)'; } } },
+      },
+    };
+  }
+
+  /* ==========================================================================
+     Pages
+     ========================================================================== */
+  /* ---------- Dashboard ---------- */
+  function pageOverview(v, arg, alive) {
+    head(v, 'Dashboard', 'How the team is doing in the selected period. Click a number to see what is behind it.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    ensureData().then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const t = d.totals;
+      const k = el('div', 'kpis');
+      k.appendChild(kpi('Messages received', t.incoming, 'From customers and groups', { go: ['chats'] }));
+      k.appendChild(kpi('Messages answered', t.answered, 'A reply was sent', { go: ['chats'] }));
+      k.appendChild(kpi('Unanswered messages', t.unanswered, 'Still waiting for a reply', { warn: t.unanswered > 0, go: ['pending'] }));
+      k.appendChild(kpi('Answer rate', pct(t.answerRate), 'Answered out of received', { go: ['agents'] }));
+      k.appendChild(kpi('Customers', t.customers, 'People and groups who wrote in', { go: ['chats'] }));
+      k.appendChild(kpi('Chats pending', t.pendingChats, 'Waiting for a reply', { warn: t.pendingChats > 0, go: ['pending'] }));
+      k.appendChild(kpi('Agent replies', t.outgoingAgents, 'Sent from the inbox', { go: ['agents'] }));
+      k.appendChild(kpi('Phone replies', t.outgoingPhone, 'Sent from the phone', { go: ['agents'] }));
+      k.appendChild(kpi('Avg first response', fmtDur(t.avgRespSec), 'Customer message to reply', { go: ['agents'] }));
+      k.appendChild(kpi('Within ' + t.slaMin + ' min', pct(t.slaRate), 'First replies inside the SLA target', { go: ['agents'] }));
+      k.appendChild(kpi('Overdue chats', t.overdueChats, 'Waiting longer than the target', { warn: t.overdueChats > 0, go: ['pending'] }));
+      body.appendChild(k);
+
+      const row = el('div', 'grid2');
+      row.appendChild(chartCard('Messages per day', 'Customer messages and the replies that were sent.', 'cDaily'));
+      row.appendChild(chartCard('Answered and unanswered', 'Share of received messages that got a reply.', 'cAnswered'));
+      body.appendChild(row);
+
+      const hub = el('div', 'grid2');
+      const wait = cardOf('Waiting the longest', 'Open the chat to see the conversation.', button('All pending', 'btn ghost small', () => go('pending')));
+      wait.appendChild(d.pending.length ? table([['Chat'], ['Assigned to'], ['Waiting', 1]],
+        d.pending.slice(0, 6).map((p) => [person(p.name, p.isGroup ? 'Group' : 'Individual', () => go('chat', p.id), p.isGroup), p.assignee ? agentLink(p.assignee, p.assigneeName) : (p.isGroup ? 'Everyone' : 'Unassigned'), fmtMin(p.waitMin)])) : emptyCard('No chats are waiting. Nice work.'));
+      hub.appendChild(wait);
+      const top = cardOf('Top agents', 'Most replies in this period.', button('All agents', 'btn ghost small', () => go('agents')));
+      const agents = d.agents.filter((a) => a.username).slice(0, 6);
+      top.appendChild(agents.length ? table([['Agent'], ['Replies', 1], ['Avg response', 1]],
+        agents.map((a) => [person(a.name, '@' + a.username, () => go('agent', a.username)), a.replies, fmtDur(a.avgRespSec)])) : emptyCard('No agent replies in this period.'));
+      hub.appendChild(top);
+      body.appendChild(hub);
+
+      const brand = css('--brand'), info = '#34B7F1', gray = css('--muted');
+      mk('cDaily', { type: 'bar', data: { labels: d.daily.map((x) => x.day.slice(5)), datasets: [
+        { label: 'Received', data: d.daily.map((x) => x.incoming), backgroundColor: brand, borderRadius: 3 },
+        { label: 'Agent replies', data: d.daily.map((x) => x.replies), backgroundColor: info, borderRadius: 3 },
+        { label: 'Phone replies', data: d.daily.map((x) => x.phone), backgroundColor: gray, borderRadius: 3 }] }, options: axisOpts('Date (MM-DD)', 'Messages') });
+      mk('cAnswered', { type: 'doughnut', data: { labels: ['Answered', 'Unanswered'], datasets: [{ data: [t.answered, t.unanswered], backgroundColor: [brand, css('--danger')], borderWidth: 0 }] }, options: doughnutOpts() });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Team ---------- */
+  function pageTeam(v, arg, alive) {
+    head(v, 'Team', 'Create accounts, choose roles and see who is online right now.', [button('Add agent', 'btn', () => openAgentModal(null))]);
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    TEAM = null;
+    loadTeam().then((list) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const online = list.filter((a) => a.online).length;
+      const sum = el('div', 'summary');
+      sum.appendChild(statBox('Accounts', list.length));
+      sum.appendChild(statBox('Online now', online));
+      sum.appendChild(statBox('Open chats assigned', list.reduce((s, a) => s + a.openChats, 0)));
+      sum.appendChild(statBox('Replies today', list.reduce((s, a) => s + a.repliesToday, 0)));
+      body.appendChild(sum);
+      if (!list.length) { body.appendChild(emptyCard('No accounts yet. Add your first agent.')); return; }
+      body.appendChild(table([['Agent'], ['Role'], ['Status'], ['Open chats', 1], ['Replies today', 1], ['']],
+        list.map((a) => {
+          const status = el('span', 'row');
+          if (!a.active) status.appendChild(pillEl('Inactive', ''));
+          else { status.appendChild(el('span', 'dot' + (a.online ? ' on' : ''))); status.appendChild(el('span', '', a.online ? 'Online' : 'Offline')); }
+          const acts = el('div', 'row');
+          if (a.builtin) acts.appendChild(el('span', 'sub', 'Set in Script properties'));
+          else {
+            acts.appendChild(button('Edit', 'btn ghost small', () => openAgentModal(a)));
+            acts.appendChild(button(a.active ? 'Deactivate' : 'Activate', 'btn ' + (a.active ? 'danger-ghost' : 'ghost') + ' small', () => toggleActive(a)));
+          }
+          return [person(a.name, '@' + a.username, () => go('agent', a.username)), pillEl(ROLE_LABEL[a.role] || a.role, a.role === 'agent' ? 'green' : a.role), status, a.openChats, a.repliesToday, acts];
+        })));
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+  function toggleActive(a) {
+    const verb = a.active ? 'Deactivate' : 'Activate';
+    if (!confirm(verb + ' ' + a.name + '? ' + (a.active ? 'They will be signed out and cannot log in.' : 'They will be able to log in again.'))) return;
+    run('saveAgent', TOKEN, { username: a.username, name: a.name, role: a.role, active: !a.active })
+      .then(() => { toast(a.name + ' is now ' + (a.active ? 'inactive' : 'active') + '.'); TEAM = null; renderView(); })
+      .catch((err) => toast(err.message));
+  }
+
+  /* ---------- Agent form (add / edit) ---------- */
+  const ROLE_HINT = {
+    agent: 'Works in the inbox. Chats are assigned to them automatically while they are signed in. They can also open the call portal.',
+    caller: 'Call portal only. This account cannot see any chat or message.',
+    admin: 'Full access: this admin portal, every chat and every report.',
+  };
+  function showRoleHint() { $('roleHint').textContent = ROLE_HINT[$('agRole').value] || ''; }
+  $('agRole').addEventListener('change', showRoleHint);
+  $('agPassToggle').addEventListener('click', () => {
+    const f = $('agPass'), show = f.type === 'password';
+    f.type = show ? 'text' : 'password';
+    $('agPassToggle').textContent = show ? 'Hide' : 'Show';
+  });
+  $('agGen').addEventListener('click', () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const buf = new Uint32Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(buf);
+    let p = '';
+    for (let i = 0; i < buf.length; i++) p += chars.charAt(buf[i] % chars.length);
+    $('agPass').value = p; $('agPass').type = 'text'; $('agPassToggle').textContent = 'Hide';
+  });
+  function openAgentModal(member) {
+    editing = member;
+    $('agTitle').textContent = member ? 'Edit ' + member.name : 'Add agent';
+    $('agName').value = member ? member.name : '';
+    $('agUser').value = member ? member.username : '';
+    $('agUser').readOnly = !!member;
+    $('agRole').value = member ? member.role : 'agent';
+    $('agPass').value = ''; $('agPass').type = 'password'; $('agPassToggle').textContent = 'Show';
+    $('passHint').textContent = member ? 'Leave empty to keep the current password.' : 'You can generate a strong one with the button below.';
+    $('agActive').checked = member ? member.active : true;
+    $('agErr').textContent = '';
+    $('agentForm').classList.remove('hide'); $('agDone').classList.add('hide');
+    showRoleHint();
+    $('agentModal').classList.add('on');
+    $('agName').focus();
+  }
+  function closeAgentModal() { $('agentModal').classList.remove('on'); }
+  $('agClose').addEventListener('click', closeAgentModal);
+  $('agCancel').addEventListener('click', closeAgentModal);
+  $('credClose').addEventListener('click', closeAgentModal);
+  $('agentForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('agErr').textContent = '';
+    const b = $('agSave');
+    const payload = { username: $('agUser').value, name: $('agName').value, role: $('agRole').value, password: $('agPass').value, active: $('agActive').checked };
+    b.disabled = true;
+    run('saveAgent', TOKEN, payload).then(() => {
+      TEAM = null;
+      if (editing) {
+        closeAgentModal();
+        toast('Saved.');
+        renderView();
+        return;
+      }
+      $('credUser').textContent = payload.username.trim().toLowerCase();
+      $('credPass').textContent = payload.password;
+      $('credPage').textContent = '(the inbox link, or the call portal link for call agents)';
+      $('agentForm').classList.add('hide'); $('agDone').classList.remove('hide');
+      renderView();
+    }).catch((err) => { $('agErr').textContent = err.message; })
+      .then(() => { b.disabled = false; });
+  });
+  $('credCopy').addEventListener('click', () => {
+    const text = 'Username: ' + $('credUser').textContent + '\nPassword: ' + $('credPass').textContent;
+    try { navigator.clipboard.writeText(text).then(() => toast('Copied.'), () => toast('Copy failed. Select the text and copy it.')); } catch (e) { toast('Copy failed. Select the text and copy it.'); }
+  });
+
+  /* ---------- Agent performance ---------- */
+  function pageAgents(v, arg, alive) {
+    head(v, 'Agent performance', 'Replies, response speed and workload per agent. Click a name for that agent\'s full profile.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    ensureData().then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const t = d.totals, list = d.agents, people = list.filter((a) => a.username);
+      const k = el('div', 'kpis');
+      k.appendChild(kpi('Active agents', people.length, 'Replied in this period'));
+      k.appendChild(kpi('Agent replies', t.outgoingAgents, 'Sent from the inbox'));
+      k.appendChild(kpi('Phone replies', t.outgoingPhone, 'Sent from the phone'));
+      k.appendChild(kpi('Avg first response', fmtDur(t.avgRespSec), 'Agent replies only'));
+      k.appendChild(kpi('Within ' + t.slaMin + ' min', pct(t.slaRate), 'First replies inside the SLA target'));
+      body.appendChild(k);
+
+      const row = el('div', 'grid2');
+      row.appendChild(chartCard('Replies by agent', '"Phone" means replies sent from the phone.', 'cAgents'));
+      row.appendChild(chartCard('Average first response', 'Minutes from the customer message to the reply. Lower is better.', 'cResp'));
+      body.appendChild(row);
+      body.appendChild(chartCard('Agent replies per day', 'Each colour is one agent.', 'cAgentDay'));
+
+      const total = people.reduce((s, a) => s + a.replies, 0);
+      const tc = cardOf('All agents');
+      tc.style.marginTop = '14px';
+      tc.appendChild(list.length ? table([['Agent'], ['Replies', 1], ['Share', 1], ['Chats replied', 1], ['Avg first response', 1], ['Within SLA', 1], ['Last reply']],
+        list.map((a) => [a.username ? person(a.name, '@' + a.username, () => go('agent', a.username)) : person(a.name, 'Sent from the phone'), a.replies, a.username && total ? Math.round(a.replies * 100 / total) + '%' : '-', a.chats, fmtDur(a.avgRespSec), pct(a.slaRate), fmtDT(a.lastTs)])) : emptyCard('No replies in this period.'));
+      body.appendChild(tc);
+
+      const pal = palette(), days = d.daily.map((x) => x.day), adMap = {};
+      d.agentDay.forEach((a) => { adMap[a.day + '|' + a.username] = a.replies; });
+      mk('cAgents', { type: 'bar', data: { labels: list.map((a) => a.name), datasets: [{ label: 'Replies', data: list.map((a) => a.replies), backgroundColor: list.map((a, i) => a.username ? pal[i % pal.length] : css('--muted')), borderRadius: 3 }] }, options: axisOpts('Agent', 'Replies', { horizontal: true }) });
+      const withRt = list.filter((a) => a.avgRespSec != null);
+      mk('cResp', { type: 'bar', data: { labels: withRt.map((a) => a.name), datasets: [{ label: 'Minutes', data: withRt.map((a) => Math.round(a.avgRespSec / 6) / 10), backgroundColor: '#34B7F1', borderRadius: 3 }] }, options: axisOpts('Agent', 'Minutes', { horizontal: true }) });
+      mk('cAgentDay', { type: 'bar', data: { labels: days.map((x) => x.slice(5)), datasets: people.map((a) => ({ label: a.name, data: days.map((x) => adMap[x + '|' + a.username] || 0), backgroundColor: pal[list.indexOf(a) % pal.length] })) }, options: axisOpts('Date (MM-DD)', 'Replies', { stacked: true }) });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- One agent ---------- */
+  function pageAgent(v, username, alive) {
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    run('getAgentProfile', TOKEN, username, getFilter()).then((p) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      setLastCrumb(p.member.name);
+      $('rangeNote').textContent = 'Showing ' + (p.range.fromMs ? fmtDate(p.range.fromMs) : 'the beginning') + ' to ' + fmtDate(p.range.toMs) + ' (timezone: ' + p.range.tz + ')';
+      const prof = el('div', 'profile');
+      prof.appendChild(el('div', 'avatar lg', p.member.name.trim().charAt(0)));
+      const info = el('div');
+      info.appendChild(el('h2', '', p.member.name));
+      const meta = el('div', 'meta');
+      meta.appendChild(el('span', 'muted', '@' + p.member.username));
+      meta.appendChild(pillEl(ROLE_LABEL[p.member.role] || p.member.role, p.member.role === 'agent' ? 'green' : p.member.role));
+      const st = el('span', 'row');
+      if (!p.member.active) st.appendChild(pillEl('Inactive', ''));
+      else { st.appendChild(el('span', 'dot' + (p.online ? ' on' : ''))); st.appendChild(el('span', 'sub', p.online ? 'Online now' : 'Offline')); }
+      meta.appendChild(st);
+      info.appendChild(meta);
+      prof.appendChild(info);
+      prof.appendChild(el('span', 'spacer'));
+      if (!p.member.builtin) prof.appendChild(button('Edit account', 'btn ghost', () => openAgentModal({ username: p.member.username, name: p.member.name, role: p.member.role, active: p.member.active })));
+      body.appendChild(prof);
+
+      const s = p.summary;
+      const k = el('div', 'kpis');
+      k.appendChild(kpi('Replies', s ? s.replies : 0, 'Sent from the inbox'));
+      k.appendChild(kpi('Chats replied to', s ? s.chats : 0, 'Different chats'));
+      k.appendChild(kpi('Avg first response', s ? fmtDur(s.avgRespSec) : '-', 'Customer message to reply'));
+      k.appendChild(kpi('Within ' + p.sla.min + ' min', s ? pct(s.slaRate) : '-', 'SLA target'));
+      k.appendChild(kpi('Open chats now', p.chats.filter((c) => c.status === 'open').length, 'Assigned to this agent'));
+      k.appendChild(kpi('Last reply', s ? fmtDT(s.lastTs) : '-', 'In this period'));
+      body.appendChild(k);
+
+      body.appendChild(chartCard('Replies per day', 'Replies sent by ' + p.member.name + ' in the selected period.', 'cProfile'));
+
+      const row = el('div', 'grid-main');
+      row.style.marginTop = '14px';
+      const cc = cardOf('Assigned chats', 'Open the chat to read the conversation.');
+      cc.appendChild(p.chats.length ? table([['Chat'], ['Last message'], ['Status'], ['Unread', 1], ['Last activity']],
+        p.chats.slice(0, 50).map((c) => [person(c.name, null, () => go('chat', c.chatId)), el('span', 'sub', c.last.slice(0, 50)), pillEl(c.status === 'open' ? 'Open' : 'Closed', c.status === 'open' ? 'open' : ''), c.unread, fmtDT(c.timeMs)])) : emptyCard('No chats are assigned to this agent.'));
+      row.appendChild(cc);
+      const cl = cardOf('Recent calls', 'Handled by this agent.');
+      cl.appendChild(p.calls.length ? table([['When'], ['Caller'], ['Status'], ['Duration', 1]],
+        p.calls.map((c) => [fmtDT(c.startMs), c.chatId ? linkEl(c.name || (c.number ? '+' + c.number : 'Unknown'), () => go('chat', c.chatId)) : (c.name || '-'), pillEl(c.status, c.status), fmtDur(c.durSec)])) : emptyCard('No calls handled by this agent.'));
+      row.appendChild(cl);
+      body.appendChild(row);
+
+      mk('cProfile', { type: 'bar', data: { labels: p.days.map((x) => x.day.slice(5)), datasets: [
+        { label: 'Replies', data: p.days.map((x) => x.replies), backgroundColor: css('--brand'), borderRadius: 3 },
+        { label: 'Chats replied to', data: p.days.map((x) => x.chats), backgroundColor: '#34B7F1', borderRadius: 3 }] }, options: axisOpts('Date (MM-DD)', 'Count') });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Chats ---------- */
+  function pageChats(v, arg, alive) {
+    head(v, 'Chats', 'Every conversation in the selected period, with who handles it. Click a chat to read it.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    ensureData().then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const row = el('div', 'grid-main');
+      const tc = cardOf('All chats', d.totalChats > d.chats.length ? 'Showing the ' + d.chats.length + ' most recent of ' + d.totalChats + '. The CSV has all of them.' : d.totalChats + ' chats.');
+      const search = el('input', 'field'); search.placeholder = 'Search by name or number'; search.style.marginBottom = '12px';
+      tc.appendChild(search);
+      const holder = el('div'); tc.appendChild(holder);
+      const draw = () => {
+        const q = search.value.trim().toLowerCase();
+        const rows = d.chats.filter((c) => !q || c.name.toLowerCase().indexOf(q) >= 0 || c.id.indexOf(q) >= 0);
+        holder.innerHTML = '';
+        holder.appendChild(rows.length ? table([['Chat'], ['Type'], ['Received', 1], ['Replies', 1], ['Status'], ['Assigned to'], ['Last reply by'], ['Last activity']],
+          rows.map((c) => [person(c.name, null, () => go('chat', c.id), c.isGroup), c.isGroup ? 'Group' : 'Individual', c.incoming, c.replies, pillEl(c.status, c.status), c.isGroup ? 'Everyone' : (c.assignee ? agentLink(c.assignee, c.assigneeName) : 'Unassigned'), c.lastAgent || '-', fmtDT(c.lastTs)])) : emptyCard('No chats match your search.'));
+      };
+      search.addEventListener('input', draw);
+      draw();
+      row.appendChild(tc);
+      row.appendChild(chartCard('Individual and group', 'Where received messages come from.', 'cType'));
+      body.appendChild(row);
+      mk('cType', { type: 'doughnut', data: { labels: ['Individual', 'Group'], datasets: [{ data: [d.totals.individualIncoming, d.totals.groupIncoming], backgroundColor: [css('--brand'), '#34B7F1'], borderWidth: 0 }] }, options: doughnutOpts() });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- One chat (read-only transcript + management) ---------- */
+  function transcriptBubble(m, isGroup) {
+    const out = m.dir === 'out';
+    const b = el('div', 'bubble' + (out ? ' out' : ''));
+    if (out) b.appendChild(el('div', 'who', m.agentName || 'Phone'));
+    else if (isGroup && m.sender) b.appendChild(el('div', 'who', m.sender));
+    if (m.quoted) b.appendChild(el('div', 'quote', m.quoted));
+    if (m.mtype) b.appendChild(el('div', 'media', '[' + (m.mtype.indexOf('image/') === 0 ? 'Photo' : m.mtype.indexOf('video/') === 0 ? 'Video' : m.mtype.indexOf('audio/') === 0 ? 'Audio' : 'File') + (m.mname && m.mname.indexOf('media save failed') !== 0 ? ': ' + m.mname : '') + ']'));
+    if (m.body) b.appendChild(el('div', 'text' + (m.body === 'This message was deleted' ? ' deleted' : ''), m.body));
+    b.appendChild(el('div', 'meta', new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })));
+    return b;
+  }
+  function pageChat(v, chatId, alive) {
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    Promise.all([run('getMessages', TOKEN, chatId, 200), run('getChatDetails', TOKEN, chatId), run('getAssignableAgents', TOKEN)]).then((res) => {
+      if (!alive()) return;
+      const msgs = res[0], d = res[1], agents = res[2];
+      body.innerHTML = '';
+      setLastCrumb(d.name || chatId);
+      const prof = el('div', 'profile');
+      prof.appendChild(el('div', 'avatar lg' + (d.isGroup ? ' group' : ''), (d.name || '?').trim().charAt(0)));
+      const info = el('div');
+      info.appendChild(el('h2', '', d.name || chatId));
+      const meta = el('div', 'meta');
+      meta.appendChild(el('span', 'muted', d.phone ? '+' + d.phone : (d.isGroup ? 'WhatsApp group' : 'WhatsApp ID hidden')));
+      meta.appendChild(pillEl(d.status === 'closed' ? 'Closed' : 'Open', d.status === 'closed' ? '' : 'open'));
+      info.appendChild(meta);
+      prof.appendChild(info);
+      body.appendChild(prof);
+
+      const row = el('div', 'grid-main');
+      const tc = cardOf('Conversation', 'Read-only. Agents reply from the inbox.');
+      const tr = el('div', 'transcript');
+      if (!msgs.messages.length) tr.appendChild(emptyCard('No messages yet.'));
+      let lastDay = '';
+      msgs.messages.forEach((m) => {
+        const day = new Date(m.time).toDateString();
+        if (day !== lastDay) { lastDay = day; tr.appendChild(el('div', 'dayChip', new Date(m.time).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }))); }
+        tr.appendChild(transcriptBubble(m, d.isGroup));
+      });
+      tc.appendChild(tr);
+      if (msgs.hasMore) tc.appendChild(el('div', 'sub', 'Showing the latest 200 messages. Older messages are in the CSV export.'));
+      row.appendChild(tc);
+
+      const side = el('div', 'stack');
+      const mg = cardOf('Manage this chat');
+      if (d.isGroup) mg.appendChild(el('p', 'sub', 'Group chats are shared with every agent and are never assigned.'));
+      else {
+        const lbl = el('label', 'lbl', 'Assigned to');
+        const sel = el('select', 'field');
+        sel.appendChild(new Option('Unassigned', ''));
+        agents.forEach((a) => sel.appendChild(new Option(a.name + (a.online ? ' (online)' : ''), a.username)));
+        sel.value = d.assignee || '';
+        sel.addEventListener('change', () => {
+          run('setChatAssignee', TOKEN, chatId, sel.value).then(() => { toast('Assignment saved.'); DATA = null; renderView(); }).catch((e) => { toast(e.message); sel.value = d.assignee || ''; });
+        });
+        lbl.appendChild(sel);
+        mg.appendChild(lbl);
+      }
+      const act = el('div', 'row'); act.style.marginTop = '12px';
+      act.appendChild(button(d.status === 'closed' ? 'Reopen chat' : 'Close chat', 'btn ghost', () => {
+        run('setChatStatus', TOKEN, chatId, d.status === 'closed' ? 'open' : 'closed').then(() => { toast('Saved.'); DATA = null; renderView(); }).catch((e) => toast(e.message));
+      }));
+      mg.appendChild(act);
+      side.appendChild(mg);
+
+      const dc = cardOf('Details');
+      const when = (ms) => (ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-');
+      const kv = (k, val) => { const r = el('div', 'kv'); r.appendChild(el('span', '', k)); const s = el('span'); if (val && val.nodeType) s.appendChild(val); else s.textContent = val; r.appendChild(s); return r; };
+      dc.appendChild(kv('Assigned to', d.isGroup ? 'Everyone' : (d.assignee ? agentLink(d.assignee, d.assigneeName) : 'Unassigned')));
+      dc.appendChild(kv('Received', d.incoming));
+      dc.appendChild(kv('Sent', d.outgoing));
+      dc.appendChild(kv('Conversations', d.conversations));
+      dc.appendChild(kv('Avg first response', fmtDur(d.avgRespSec)));
+      dc.appendChild(kv('First message', when(d.firstTs)));
+      dc.appendChild(kv('Last message', when(d.lastTs)));
+      dc.appendChild(kv('Media shared', d.media.image + ' photos, ' + d.media.video + ' videos, ' + d.media.audio + ' audio, ' + d.media.file + ' files'));
+      if (!d.isGroup) dc.appendChild(kv('Calls', d.calls.total ? d.calls.total + ' (' + d.calls.missed + ' missed)' : 'None'));
+      side.appendChild(dc);
+
+      const rc = cardOf('Replies by agent');
+      rc.appendChild(d.agents.length ? table([['Agent'], ['Replies', 1]], d.agents.map((a) => [a.name, a.replies])) : emptyCard('No replies yet.'));
+      side.appendChild(rc);
+      row.appendChild(side);
+      body.appendChild(row);
+      tr.scrollTop = tr.scrollHeight;
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Pending ---------- */
+  function pagePending(v, arg, alive) {
+    head(v, 'Pending chats', 'Customers whose last message has not been answered yet, longest wait first.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    ensureData().then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const c = cardOf(d.totalPending ? d.totalPending + ' chats are waiting for a reply' : 'Nothing is waiting', d.totalPending > d.pending.length ? 'Showing the ' + d.pending.length + ' longest waiting. The rest are in the CSV export.' : 'SLA target: ' + d.totals.slaMin + ' minutes.');
+      c.appendChild(d.pending.length ? table([['Chat'], ['Type'], ['Assigned to'], ['Unanswered', 1], ['Waiting since'], ['Waiting', 1], ['SLA']],
+        d.pending.map((p) => [person(p.name, null, () => go('chat', p.id), p.isGroup), p.isGroup ? 'Group' : 'Individual', p.isGroup ? 'Everyone' : (p.assignee ? agentLink(p.assignee, p.assigneeName) : 'Unassigned'), p.unanswered, fmtDT(p.sinceMs), fmtMin(p.waitMin), p.overdue ? pillEl('Overdue', 'Overdue') : pillEl('Within target', 'green')])) : emptyCard('No chats are pending.'));
+      body.appendChild(c);
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Date and time ---------- */
+  function pageDays(v, arg, alive) {
+    head(v, 'Date and time', 'Busy days and busy hours, useful for planning shifts.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    ensureData().then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const row = el('div', 'grid2');
+      row.appendChild(chartCard('Messages by hour of day', 'When customers write and when replies are sent.', 'cHourly'));
+      row.appendChild(chartCard('Customers and chats replied to', 'Different customers who wrote in each day.', 'cCust'));
+      body.appendChild(row);
+      const tc = cardOf('Day by day');
+      tc.appendChild(d.daily.length ? table([['Date'], ['Received', 1], ['Customers', 1], ['Agent replies', 1], ['Phone replies', 1], ['Chats replied', 1]],
+        d.daily.slice().reverse().map((x) => [x.day, x.incoming, x.customers, x.replies, x.phone, x.chatsReplied])) : emptyCard('No data in this period.'));
+      body.appendChild(tc);
+      const brand = css('--brand'), info = '#34B7F1', gray = css('--muted');
+      mk('cHourly', { type: 'bar', data: { labels: d.hourly.map((h) => (h.hour < 10 ? '0' : '') + h.hour), datasets: [
+        { type: 'bar', label: 'Received', data: d.hourly.map((h) => h.incoming), backgroundColor: brand, borderRadius: 3 },
+        { type: 'line', label: 'Agent replies', data: d.hourly.map((h) => h.agentReplies), borderColor: info, backgroundColor: info, tension: .3 },
+        { type: 'line', label: 'Phone replies', data: d.hourly.map((h) => h.phoneReplies), borderColor: gray, backgroundColor: gray, tension: .3 }] }, options: axisOpts('Hour of day (24h)', 'Messages') });
+      mk('cCust', { type: 'line', data: { labels: d.daily.map((x) => x.day.slice(5)), datasets: [
+        { label: 'Customers', data: d.daily.map((x) => x.customers), borderColor: brand, backgroundColor: brand, tension: .3 },
+        { label: 'Chats replied to', data: d.daily.map((x) => x.chatsReplied), borderColor: info, backgroundColor: info, tension: .3 }] }, options: axisOpts('Date (MM-DD)', 'Chats') });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Mail (Alimail data from the Mail sheets) ---------- */
+  function pageMail(v, arg, alive) {
+    head(v, 'Mail', 'Alimail conversations, saved in the Google Sheet (MailMessages and MailThreads). WhatsApp data is kept separately.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    run('getMailDashboard', TOKEN, getFilter()).then((d) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const t = d.totals;
+      const k = el('div', 'kpis');
+      k.appendChild(kpi('Mails received', t.received, 'From customers'));
+      k.appendChild(kpi('Replies sent', t.sent, 'Sent from Alimail'));
+      k.appendChild(kpi('Customers', t.customers, 'Different senders'));
+      k.appendChild(kpi('Open chats', t.open, 'Waiting for a reply'));
+      k.appendChild(kpi('Completed chats', t.closed, 'Replied or marked done'));
+      body.appendChild(k);
+
+      const row = el('div', 'grid2');
+      row.appendChild(chartCard('Mail per day', 'Received and sent.', 'cMailDay'));
+      row.appendChild(chartCard('Replies by agent', 'Mail sent from Alimail per agent.', 'cMailAgent'));
+      body.appendChild(row);
+
+      const tc = cardOf('Recent mail chats', d.threads.length ? 'Latest ' + d.threads.length + ' chats in this period.' : '');
+      tc.appendChild(d.threads.length
+        ? table([['Contact'], ['Subject'], ['Status'], ['Messages', 1], ['Last agent'], ['Last activity']],
+            d.threads.map((x) => [person(x.contact, null), x.subject, pillEl(x.status, x.status), x.messages, x.lastAgent || '-', fmtDT(x.lastTime)]))
+        : emptyCard('No mail in this period. Open Alimail, or wait for the next sync, then refresh.'));
+      body.appendChild(tc);
+
+      mk('cMailDay', { type: 'bar', data: { labels: d.daily.map((x) => x.day.slice(5)), datasets: [
+        { label: 'Received', data: d.daily.map((x) => x.received), backgroundColor: css('--brand'), borderRadius: 3 },
+        { label: 'Sent', data: d.daily.map((x) => x.sent), backgroundColor: '#34B7F1', borderRadius: 3 }] }, options: axisOpts('Date (MM-DD)', 'Mails') });
+      mk('cMailAgent', { type: 'bar', data: { labels: d.agents.map((a) => a.name), datasets: [
+        { label: 'Replies', data: d.agents.map((a) => a.replies), backgroundColor: css('--brand'), borderRadius: 3 }] }, options: axisOpts('Agent', 'Replies', { horizontal: true }) });
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Calls ---------- */
+  function pageCalls(v, arg, alive) {
+    head(v, 'Calls', 'Every WhatsApp call: inbound and outbound, who took it and how long it lasted.', [button('Download CSV', 'btn ghost', () => exportCalls())]);
+    const bar = el('div', 'toolbar');
+    const mkSel = (label, id, opts) => { const l = el('label', 'lbl', label); const s = el('select', 'field'); s.id = id; opts.forEach((o) => s.appendChild(new Option(o[1], o[0]))); l.appendChild(s); bar.appendChild(l); return s; };
+    mkSel('Direction', 'cDir', [['', 'All'], ['in', 'Inbound'], ['out', 'Outbound']]);
+    mkSel('Status', 'cStatus', [['', 'All'], ['completed', 'Completed'], ['taken', 'Taken'], ['in-progress', 'In progress'], ['missed', 'Missed'], ['rejected', 'Rejected'], ['ringing', 'Ringing']]);
+    const ag = mkSel('Agent', 'cAgent', [['', 'All agents']]);
+    const t = new Date(), f = new Date(); f.setDate(t.getDate() - 6);
+    [['From', 'cFrom', ymd(f)], ['To', 'cTo', ymd(t)]].forEach((x) => { const l = el('label', 'lbl', x[0]); const i = el('input', 'field'); i.type = 'date'; i.id = x[1]; i.value = x[2]; l.appendChild(i); bar.appendChild(l); });
+    const ql = el('label', 'lbl', 'Search'); const qi = el('input', 'field'); qi.id = 'cQ'; qi.placeholder = 'Name or number'; ql.appendChild(qi); bar.appendChild(ql);
+    bar.appendChild(button('Search', 'btn', () => load()));
+    v.appendChild(bar);
+    const body = el('div'); v.appendChild(body);
+    loadTeam().then((l) => l.forEach((a) => ag.appendChild(new Option(a.name, a.username)))).catch(() => {});
+
+    const filt = () => ({ direction: $('cDir').value, status: $('cStatus').value, agent: $('cAgent').value, fromDate: $('cFrom').value, toDate: $('cTo').value, q: $('cQ').value });
+    function load() {
+      body.innerHTML = ''; body.appendChild(loading());
+      run('getCalls', TOKEN, filt()).then((r) => {
+        if (!alive()) return;
+        body.innerHTML = '';
+        const s = r.summary;
+        const sum = el('div', 'summary');
+        sum.appendChild(statBox('Total calls', s.total)); sum.appendChild(statBox('Inbound', s.inbound)); sum.appendChild(statBox('Outbound', s.outbound));
+        sum.appendChild(statBox('Inbound answered', s.answered)); sum.appendChild(statBox('Missed', s.missed)); sum.appendChild(statBox('Rejected', s.rejected)); sum.appendChild(statBox('Talk time', fmtDur(s.talkSec)));
+        body.appendChild(sum);
+        const row = el('div', 'grid-main');
+        const tc = cardOf('All calls', r.total > r.calls.length ? 'Showing the latest ' + r.calls.length + ' of ' + r.total + '. The CSV has all of them.' : r.total + ' calls.');
+        tc.appendChild(r.calls.length ? table([['Time'], ['Direction'], ['Caller'], ['Type'], ['Status'], ['Handled by'], ['Duration', 1], ['Outcome'], ['Notes', 0, 'wrap']],
+          r.calls.map((c) => [fmtDT(c.startMs), c.dir === 'in' ? 'Inbound' : 'Outbound',
+            c.chatId && !c.isGroup ? linkEl(c.name || (c.number ? '+' + c.number : 'Unknown'), () => go('chat', c.chatId)) : (c.name || 'Group call'),
+            c.type, pillEl(c.status, c.status), c.agent ? agentLink(c.agent, c.agentName) : '-', fmtDur(c.durSec), c.outcome || '-', c.notes || ''])) : emptyCard('No calls match this filter.'));
+        row.appendChild(tc);
+        const ac = cardOf('By agent', 'Calls handled and talk time.');
+        ac.appendChild(s.agents.length ? table([['Agent'], ['In', 1], ['Out', 1], ['Talk', 1]], s.agents.map((a) => [person(a.name, null, () => go('agent', a.username)), a.inbound, a.outbound, fmtDur(a.talkSec)])) : emptyCard('No agent activity.'));
+        row.appendChild(ac);
+        body.appendChild(row);
+      }).catch((err) => { if (alive()) failed(body, err); });
+    }
+    load();
+    function exportCalls() {
+      run('exportCallsCsv', TOKEN, filt()).then((r) => { downloadCsv([r.csv], 'whatsapp_calls_' + ymd(new Date()) + '.csv'); toast('Downloaded ' + r.rows + ' calls.'); }).catch((e) => toast(e.message));
+    }
+  }
+
+  /* ---------- Quick replies ---------- */
+  function pageQuick(v, arg, alive) {
+    head(v, 'Quick replies', 'Ready-made messages. Agents type / and the shortcut (for example /price) in the inbox to insert one.');
+    const row = el('div', 'grid-main');
+    const list = cardOf('Saved quick replies');
+    const holder = el('div'); holder.appendChild(loading()); list.appendChild(holder);
+    row.appendChild(list);
+    const form = cardOf('Add or edit');
+    const fs = el('div', 'stack');
+    const l1 = el('label', 'lbl', 'Shortcut'); const sc = el('input', 'field'); sc.placeholder = 'price'; sc.maxLength = 20; sc.autocapitalize = 'none'; l1.appendChild(sc);
+    const l2 = el('label', 'lbl', 'Message'); const tx = el('textarea', 'field'); tx.rows = 5; tx.maxLength = 1000; tx.placeholder = 'The text that will be inserted'; l2.appendChild(tx);
+    const err = el('div', 'err');
+    const save = button('Save quick reply', 'btn block', () => {
+      err.textContent = '';
+      run('saveQuickReply', TOKEN, sc.value, tx.value).then(() => { sc.value = ''; tx.value = ''; toast('Saved.'); draw(); }).catch((e) => { err.textContent = e.message; });
+    });
+    [l1, l2, save, err].forEach((x) => fs.appendChild(x));
+    form.appendChild(fs);
+    row.appendChild(form);
+    v.appendChild(row);
+    function draw() {
+      run('getQuickReplies', TOKEN).then((qs) => {
+        if (!alive()) return;
+        holder.innerHTML = '';
+        holder.appendChild(qs.length ? table([['Shortcut'], ['Message', 0, 'wrap'], ['']], qs.map((x) => {
+          const a = el('div', 'row');
+          a.appendChild(button('Edit', 'btn ghost small', () => { sc.value = x.shortcut; tx.value = x.text; sc.focus(); }));
+          a.appendChild(button('Delete', 'btn danger-ghost small', () => { if (confirm('Delete /' + x.shortcut + '?')) run('deleteQuickReply', TOKEN, x.shortcut).then(draw).catch((e) => toast(e.message)); }));
+          return ['/' + x.shortcut, x.text, a];
+        })) : emptyCard('No quick replies yet. Add the first one on the right.'));
+      }).catch((e) => { if (alive()) failed(holder, e); });
+    }
+    draw();
+  }
+
+  /* ---------- Settings ---------- */
+  function pageSettings(v, arg, alive) {
+    head(v, 'Settings', 'Service targets, how agents appear to customers, and the WhatsApp connection.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    run('getSettings', TOKEN).then((s) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const row = el('div', 'grid2');
+
+      const c1 = cardOf('Service and messages', 'These apply to everyone.');
+      const st = el('div', 'stack');
+      const l1 = el('label', 'lbl', 'SLA target: reply within (minutes)'); const sla = el('input', 'field'); sla.type = 'number'; sla.min = 1; sla.max = 1440; sla.value = s.slaMinutes; l1.appendChild(sla);
+      l1.appendChild(el('span', 'hint', 'Used for the "within target" and "overdue" numbers in reports.'));
+      st.appendChild(l1);
+      const gl = el('div'); gl.appendChild(el('div', 'lbl', 'Show the agent name in WhatsApp messages'));
+      const modes = [['groups', 'Group chats only', 'Customers in groups see who replied, for example *Rakib:*. Recommended.'], ['all', 'Every chat', 'The agent name is added to all messages, including private chats.'], ['off', 'Never', 'Messages are sent exactly as typed.']];
+      modes.forEach((m) => {
+        const r = el('label', 'radio'); const i = document.createElement('input'); i.type = 'radio'; i.name = 'signMode'; i.value = m[0]; i.checked = s.signMode === m[0];
+        const t = el('div'); t.appendChild(el('b', '', m[1])); t.appendChild(el('span', '', m[2]));
+        r.appendChild(i); r.appendChild(t); gl.appendChild(r);
+      });
+      st.appendChild(gl);
+      const l3 = el('label', 'lbl', 'Email for "bridge is down" alerts'); const em = el('input', 'field'); em.type = 'email'; em.value = s.alertEmail; em.placeholder = s.ownerEmail || 'owner email'; l3.appendChild(em);
+      l3.appendChild(el('span', 'hint', 'Leave empty to use the script owner\'s email.' + (s.alertState === 'down' ? ' The bridge is currently reported as down.' : '')));
+      st.appendChild(l3);
+      const err = el('div', 'err');
+      st.appendChild(button('Save settings', 'btn', () => {
+        err.textContent = '';
+        const mode = (document.querySelector('input[name="signMode"]:checked') || {}).value;
+        run('saveSettings', TOKEN, { slaMinutes: sla.value, signMode: mode, alertEmail: em.value }).then(() => { toast('Settings saved.'); DATA = null; }).catch((e) => { err.textContent = e.message; });
+      }));
+      st.appendChild(err);
+      c1.appendChild(st);
+      row.appendChild(c1);
+
+      const c2 = cardOf('WhatsApp connection', 'The bridge keeps this PC or server linked to WhatsApp.');
+      const ok = s.bridge.status === 'ready';
+      const kv = (k, val) => { const r = el('div', 'kv'); r.appendChild(el('span', '', k)); const x = el('span'); if (val && val.nodeType) x.appendChild(val); else x.textContent = val; r.appendChild(x); return r; };
+      c2.appendChild(kv('Status', pillEl(ok ? 'Connected' : 'Not connected (' + s.bridge.status + ')', ok ? 'green' : 'red')));
+      c2.appendChild(kv('Last signal from the bridge', s.bridge.ageSec == null ? 'Never' : (s.bridge.ageSec < 120 ? s.bridge.ageSec + ' seconds ago' : Math.round(s.bridge.ageSec / 60) + ' minutes ago')));
+      c2.appendChild(kv('Bridge address (BRIDGE_URL)', s.bridgeUrlSet ? 'Set' : 'Missing, set it in Script properties'));
+      const un = el('div', 'row'); un.style.marginTop = '14px';
+      un.appendChild(button('Unlink WhatsApp', 'btn danger-ghost', () => {
+        if (!confirm('Unlink WhatsApp from this workspace? Nobody can send or receive until someone scans a new QR code in the inbox.')) return;
+        run('logoutWhatsApp', TOKEN).then(() => { toast('WhatsApp was unlinked. Scan a new QR code in the inbox.'); refreshBridge(); }).catch((e) => toast(e.message));
+      }));
+      c2.appendChild(un);
+      c2.appendChild(el('p', 'hint', 'Email alerts need a one-time setup: run installBridgeMonitor once in the Apps Script editor.'));
+      row.appendChild(c2);
+      body.appendChild(row);
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Portal links ---------- */
+  function copyField(inp, btn) {
+    const done = () => { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); };
+    inp.select();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(inp.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Press Ctrl+C'; } });
+        return;
+      }
+    } catch (e) { /* fall through */ }
+    try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Press Ctrl+C'; }
+  }
+  function pageLinks(v, arg, alive) {
+    head(v, 'Portal links', 'Open or copy the link of each page. Share the inbox link with agents and the call link with call agents.');
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+    run('getPortalLinks', TOKEN).then((l) => {
+      if (!alive()) return;
+      body.innerHTML = '';
+      const c = el('div', 'card');
+      [['Inbox', 'For agents who answer WhatsApp messages.', l.chat], ['Call portal', 'For call agents: ringing alerts, inbound and outbound calls, call history.', l.calls], ['Admin portal', 'This portal. Administrators only.', l.admin]].forEach((x) => {
+        const r = el('div', 'linkRow');
+        r.appendChild(el('h3', '', x[0]));
+        r.appendChild(el('div', 'sub', x[1]));
+        const line = el('div', 'linkLine');
+        const inp = el('input', 'field'); inp.readOnly = true; inp.value = x[2];
+        const open = el('a', 'btn small', 'Open'); open.href = x[2]; open.target = '_blank'; open.rel = 'noopener';
+        const copy = button('Copy', 'btn ghost small', () => copyField(inp, copy));
+        line.appendChild(inp); line.appendChild(open); line.appendChild(copy);
+        r.appendChild(line);
+        c.appendChild(r);
+      });
+      body.appendChild(c);
+    }).catch((err) => { if (alive()) failed(body, err); });
+  }
+
+  /* ---------- Export ---------- */
+  const EXP = {
+    daily: ['Date-wise summary', 'For each day: messages received, customers, agent and phone replies, chats replied to.'],
+    agent: ['Agent-wise summary', 'For each agent: replies, chats replied to, average first response (seconds), SLA percentage and last reply.'],
+    agentday: ['Agent by date', 'Replies per agent per day.'],
+    hour: ['Hour-wise summary', 'For each of the 24 hours: messages received and replies sent.'],
+    chat: ['Chat-wise summary', 'For each chat: messages received, replies, status, who replied last.'],
+    pending: ['Pending chats', 'Chats still waiting for a reply, how long, and whether they are over the SLA target.'],
+    messages: ['All messages (raw data)', 'Every message with time, chat, direction, agent, text, media and delivery status. Large exports can take a while.'],
+  };
+  function downloadCsv(parts, name) {
+    const blob = new Blob(['\uFEFF'].concat(parts), { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function pageExport(v, arg, alive) {
+    head(v, 'Export CSV', 'Download reports for Excel. The date range, chat type and SLA target in the bar above are applied.');
+    const c = cardOf('Choose a report');
+    const fs = el('div', 'stack');
+    const l1 = el('label', 'lbl', 'Report'); const kind = el('select', 'field'); Object.keys(EXP).forEach((k) => kind.appendChild(new Option(EXP[k][0], k))); l1.appendChild(kind);
+    const l2 = el('label', 'lbl', 'Agent (optional)'); const ag = el('select', 'field'); ag.appendChild(new Option('All agents', '')); l2.appendChild(ag);
+    l2.appendChild(el('span', 'hint', 'Applies to the agent summary, agent by date and raw messages.'));
+    const desc = el('p', 'sub'); const msg = el('span', 'sub');
+    const upd = () => { desc.textContent = EXP[kind.value][1] + ' To stop Excel from running formulas, text starting with =, +, - or @ gets a leading apostrophe.'; };
+    kind.addEventListener('change', upd); upd();
+    const go1 = button('Download CSV', 'btn', async () => {
+      go1.disabled = true; msg.textContent = 'Preparing...';
+      try {
+        const f = getFilter(); if (ag.value) f.agent = ag.value;
+        const parts = []; let page = 0, rows = 0;
+        for (;;) {
+          const r = await run('exportCsv', TOKEN, kind.value, f, page);
+          parts.push(r.csv); rows += r.rows || 0;
+          if (kind.value === 'messages') msg.textContent = rows + ' rows so far (page ' + (page + 1) + ')...';
+          if (r.done) break;
+          page++;
+        }
+        const stamp = f.range === 'custom' ? f.fromDate + '_to_' + f.toDate : f.range + '_' + ymd(new Date());
+        downloadCsv(parts, 'whatsapp_' + kind.value + '_' + stamp + '.csv');
+        msg.textContent = 'Download complete (' + rows + ' rows).';
+      } catch (e) { msg.textContent = 'Error: ' + e.message; }
+      go1.disabled = false;
+    });
+    [l1, l2, desc].forEach((x) => fs.appendChild(x));
+    const r = el('div', 'row'); r.appendChild(go1); r.appendChild(msg); fs.appendChild(r);
+    c.appendChild(fs); v.appendChild(c);
+    loadTeam().then((l) => l.filter((a) => a.role !== 'caller').forEach((a) => ag.appendChild(new Option(a.name, a.username)))).catch(() => {});
+  }
+
+  /* ---------- Guide ---------- */
+  function pageGuide(v) {
+    head(v, 'Guide', 'Where to find things, and what the numbers mean.');
+    const dl = (pairs) => { const d = el('dl', 'defs'); pairs.forEach((p) => { d.appendChild(el('dt', '', p[0])); d.appendChild(el('dd', '', p[1])); }); return d; };
+    const a = cardOf('Pages'); a.appendChild(dl([
+      ['Dashboard', 'The main numbers for the selected period. Click any number to open the page behind it.'],
+      ['Team', 'Create and edit accounts, set roles, see who is online and how busy each person is. Click a name for that agent\'s profile.'],
+      ['Agent performance', 'Replies, response speed and SLA for every agent.'],
+      ['Chats', 'Every conversation with its handler. Click a chat to read it, reassign it or close it.'],
+      ['Pending', 'Customers still waiting for a reply, longest first.'],
+      ['Mail', 'Alimail conversations saved from the MailMessages and MailThreads sheets.'],
+      ['Calls', 'Call history with filters, the agent who handled each call and a CSV download.'],
+      ['Settings', 'SLA target, whether the agent name is added to messages, alert email and the WhatsApp connection.'],
+    ])); v.appendChild(a);
+    const b = cardOf('What the numbers mean'); b.appendChild(dl([
+      ['Messages received', 'Messages from individual numbers and groups. Channels, broadcasts and WhatsApp system notices are not counted.'],
+      ['Messages answered', 'A customer message counts as answered once any reply (from an agent or the phone) is sent after it. One reply answers every message that came before it.'],
+      ['Unanswered / Pending', 'Messages and chats that have not received a reply yet.'],
+      ['Customers', 'How many different people or groups wrote in during the period.'],
+      ['Avg first response', 'Average time between the first unanswered customer message and the reply.'],
+      ['Within SLA target', 'Share of first replies sent inside the target set in the filter bar (every reply counts, from agents and from the phone).'],
+      ['Overdue chats', 'Pending chats that have waited longer than the SLA target.'],
+      ['Assignment', 'Private chats go to a signed-in agent automatically and only that agent sees them. Group chats are shared with everyone. Admins see everything.'],
+      ['Time', 'All times use the timezone of the Apps Script project.'],
+    ])); b.style.marginTop = '14px'; v.appendChild(b);
+  }
+
+</script>
+</body>
+</html>

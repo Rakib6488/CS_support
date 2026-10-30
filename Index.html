@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= include('Styles') ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  .screen { display: none; height: 100vh; }
+  .screen.on { display: flex; }
+  #loginScreen.on { display: grid; height: auto; min-height: 100vh; }
+  #qrScreen.on { align-items: center; justify-content: center; padding: 20px; background: var(--bg); }
+  .qr-card { text-align: center; max-width: 420px; }
+  #qrCanvas { display: none; background: #fff; padding: 12px; border-radius: 12px; width: 304px; margin: 0 auto 16px; border: 1px solid var(--line); }
+  #qrCanvas img, #qrCanvas canvas { margin: 0 auto; }
+  .qr-card ol { text-align: left; color: var(--muted); padding-left: 20px; line-height: 1.7; margin: 0 0 6px; display: none; }
+  .qr-card .btn { margin-top: 10px; }
+
+  /* ---------- Inbox layout ---------- */
+  #chatScreen { flex-direction: row; background: var(--panel); }
+  .side { width: 360px; flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .side-top { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
+  .brand-mini { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+  .brand-logo { width: 32px; height: 32px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; flex: none; }
+  .menuWrap { position: relative; }
+  .menuBtn { border: 0; cursor: pointer; width: 34px; height: 34px; font-size: 14px; }
+  .menu { position: absolute; right: 0; top: 42px; width: 230px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); padding: 6px; display: none; z-index: 40; }
+  .menu.on { display: block; }
+  .menu-head { padding: 10px 12px 8px; display: flex; flex-direction: column; }
+  .menu-head b { font-weight: 600; }
+  .menu button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  .menu button:hover { background: var(--panel-2); }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+  .menu .danger { color: var(--danger); }
+  .side-search { padding: 0 14px 10px; }
+  .side .tabs { margin: 0 14px 12px; }
+  #chatList { overflow-y: auto; flex: 1; border-top: 1px solid var(--line); }
+  .chat { display: flex; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; }
+  .chat:hover { background: var(--panel-2); }
+  .chat.active { background: var(--brand-soft); }
+  .chat .avatar { width: 44px; height: 44px; }
+  .chatMain { flex: 1; min-width: 0; }
+  .chatTop { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .chatName { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chatTime { color: var(--muted); font-size: 12px; flex: none; }
+  .chatLast { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; flex: 1; min-width: 0; }
+  .chat .chatTop + .chatTop { gap: 6px; justify-content: flex-start; }
+
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--chat-bg); }
+  #banner { display: none; align-items: center; gap: 10px; padding: 9px 16px; background: var(--warn-soft); color: var(--warn); font-size: 13px; border-bottom: 1px solid var(--line); }
+  #banner span { flex: 1; }
+  #banner button { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 7px; padding: 4px 10px; cursor: pointer; font-weight: 500; }
+  .mainHead { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); min-height: 64px; }
+  .titles { min-width: 0; }
+  .titles strong { font-size: 15.5px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titles .sub { font-size: 12.5px; }
+  #back { display: none; }
+  .headBtns { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  #assignSel { max-width: 170px; }
+
+  #msgs { flex: 1; overflow-y: auto; padding: 18px 6%; display: flex; flex-direction: column; gap: 4px; }
+  .placeholder { margin: auto; color: var(--muted); text-align: center; line-height: 1.6; background: color-mix(in srgb, var(--panel) 80%, transparent); padding: 10px 18px; border-radius: 10px; }
+  .dayChip { align-self: center; background: var(--panel); color: var(--muted); font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 8px; margin: 10px 0 6px; box-shadow: var(--shadow); }
+  .olderBtn { align-self: center; }
+
+  .bubble { max-width: min(560px, 82%); padding: 7px 11px 6px; border-radius: 10px; background: var(--in); box-shadow: 0 1px 1px rgba(17, 27, 33, .12); overflow-wrap: anywhere; line-height: 1.4; align-self: flex-start; border-top-left-radius: 2px; }
+  .bubble.out { align-self: flex-end; background: var(--out); border-top-left-radius: 10px; border-top-right-radius: 2px; }
+  .who { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+  .text { white-space: pre-wrap; }
+  .text.deleted { font-style: italic; color: var(--muted); }
+  .quote { border-left: 3px solid var(--brand); background: rgba(127, 127, 127, .14); padding: 4px 8px; border-radius: 4px; font-size: 13px; color: var(--muted); margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta { display: flex; gap: 8px; justify-content: flex-end; align-items: center; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .meta button { background: none; border: 0; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+  .tick.read { color: var(--read); }
+  .media { margin-bottom: 4px; font-size: 13px; color: var(--muted); }
+  .media img { max-width: 260px; max-height: 300px; border-radius: 8px; display: block; cursor: zoom-in; }
+  .media video { max-width: min(320px, 100%); border-radius: 8px; display: block; }
+  .media audio { width: 240px; display: block; }
+  .media a { color: var(--brand); font-weight: 500; }
+  .media .dl { display: inline-block; margin-top: 4px; font-size: 12px; }
+
+  .composerWrap { background: var(--panel); border-top: 1px solid var(--line); display: none; flex-direction: column; position: relative; }
+  #qrPop { display: none; position: absolute; left: 12px; right: 12px; bottom: 100%; max-height: 220px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); z-index: 20; margin-bottom: 6px; }
+  .qrItem { padding: 9px 14px; cursor: pointer; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qrItem:last-child { border-bottom: 0; }
+  .qrItem:hover { background: var(--panel-2); }
+  .qrItem b { color: var(--brand); }
+  .qrItem span { color: var(--muted); }
+  .bar { display: none; align-items: center; gap: 10px; padding: 8px 14px 0; font-size: 13px; color: var(--muted); }
+  .bar .barText { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--brand); padding-left: 8px; }
+  .bar button { background: transparent; border: 0; cursor: pointer; font-size: 18px; color: var(--muted); }
+  .composer { display: flex; gap: 8px; padding: 10px 14px; align-items: flex-end; }
+  .composer textarea { flex: 1; resize: none; border: 1px solid var(--line-strong); border-radius: 22px; padding: 10px 16px; background: var(--panel); max-height: 140px; }
+  .composer textarea:focus { border-color: var(--brand); outline: 0; }
+  .composer .btn { border-radius: 22px; padding: 9px 20px; }
+  .composer .iconBtn { padding: 9px 14px; border-radius: 22px; }
+
+  /* ---------- Customer panel ---------- */
+  .info { width: 320px; flex: none; background: var(--panel); border-left: 1px solid var(--line); display: none; flex-direction: column; min-width: 0; }
+  #chatScreen.info-on .info { display: flex; }
+  .info-top { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  #infoBody { overflow-y: auto; flex: 1; padding: 16px; }
+  .info-head { text-align: center; padding-bottom: 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .info-head .avatar { margin: 0 auto 10px; }
+  .info-head h3 { font-size: 16px; overflow-wrap: anywhere; }
+  .info-sec { margin-bottom: 18px; }
+  .info-sec h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mini div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; text-align: center; }
+  .mini b { display: block; font-size: 17px; }
+  .mini span { font-size: 11.5px; color: var(--muted); }
+  .lightbox { position: fixed; inset: 0; background: rgba(0, 0, 0, .88); display: none; align-items: center; justify-content: center; z-index: 70; cursor: zoom-out; }
+  .lightbox.on { display: flex; }
+  .lightbox img { max-width: 95%; max-height: 95%; }
+
+  /* Alimail overlay inside the portal */
+  .mailWrap { position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column; z-index: 80; }
+  .mailWrap.on { display: flex; }
+  .mailBar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--brand-dark); color: #fff; font-weight: 600; }
+  .mailBar .iconBtn { color: #fff; background: transparent; border-color: rgba(255,255,255,.4); }
+  #mailFrame { flex: 1; width: 100%; border: 0; }
+
+  @media (max-width: 1180px) {
+    .info { position: fixed; right: 0; top: 0; bottom: 0; width: min(360px, 100%); z-index: 50; box-shadow: -10px 0 30px rgba(0, 0, 0, .2); }
+  }
+  @media (max-width: 720px) {
+    .side { width: 100%; }
+    .main { display: none; }
+    #chatScreen.open .side { display: none; }
+    #chatScreen.open .main { display: flex; }
+    #back { display: inline-flex; }
+    #msgs { padding: 14px 10px; }
+  }
+
+  /* ---------- Login: WhatsApp (left) and Mail (right) colours ---------- */
+  #loginScreen .auth-panel {
+    background: linear-gradient(160deg, #ef4b3c 0%, #b83225 100%);
+  }
+  #loginScreen .auth-card {
+    border: 0;
+    box-shadow: 0 18px 40px rgba(60, 10, 5, .28);
+  }
+  #loginScreen .auth-card .btn {
+    background: #ef4b3c;
+  }
+  #loginScreen .auth-card .btn:hover {
+    background: #d93a2b;
+  }
+  #loginScreen .auth-card .field:focus {
+    border-color: #ef4b3c;
+    box-shadow: 0 0 0 3px rgba(239, 75, 60, .15);
+  }
+  #loginScreen .auth-card .pw-wrap button,
+  #loginScreen .auth-card .auth-foot {
+    color: #d93a2b;
+  }
+</style>
+</head>
+<body>
+
+<!-- Sign in -->
+<div class="screen auth on" id="loginScreen">
+  <div class="auth-brand">
+    <div class="auth-logo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
+    <h1>WhatsApp &amp; Mail Box</h1>
+    <p>One shared workspace for your team to answer customers on WhatsApp and by email.</p>
+    <ul class="auth-points">
+      <li><i>1</i>WhatsApp chats and Gmail conversations in one place</li>
+      <li><i>2</i>Chats are assigned to you automatically</li>
+      <li><i>3</i>Quick replies, media and group chats</li>
+      <li><i>4</i>Every conversation is recorded for reports</li>
+    </ul>
+  </div>
+  <div class="auth-panel">
+    <form class="auth-card" id="loginForm">
+      <h2>Welcome back</h2>
+      <p>Sign in with your agent account.</p>
+      <label class="lbl">Username
+        <input id="user" class="field" type="text" autocomplete="username" autocapitalize="none" autofocus>
+      </label>
+      <label class="lbl">Password
+        <div class="pw-wrap">
+          <input id="pw" class="field" type="password" autocomplete="current-password">
+          <button type="button" id="pwToggle">Show</button>
+        </div>
+      </label>
+      <button class="btn block" id="loginBtn" type="submit">Sign in</button>
+      <div class="err" id="loginErr"></div>
+      <div class="auth-foot">Need an account? Ask your administrator.</div>
+    </form>
+  </div>
+</div>
+
+<!-- WhatsApp connection -->
+<div class="screen" id="qrScreen">
+  <div class="card qr-card auth-card">
+    <h2 id="qrTitle">Connect WhatsApp</h2>
+    <p id="qrText">Loading status...</p>
+    <div id="qrCanvas"></div>
+    <ol id="qrSteps">
+      <li>Open WhatsApp on your phone</li>
+      <li>Go to Linked devices and tap Link a device</li>
+      <li>Scan this QR code</li>
+    </ol>
+    <button class="btn ghost block" id="viewOnly">View old chats</button>
+    <button class="btn ghost block" id="qrLogout">Log out</button>
+  </div>
+</div>
+
+<!-- Inbox -->
+<div id="chatScreen" class="screen">
+  <aside class="side">
+    <div class="side-top">
+      <div class="brand-mini">
+        <div class="brand-logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
+        WhatsApp &amp; Mail Box
+      </div>
+      <span class="spacer"></span>
+      <button class="iconBtn" id="newChat">New chat</button>
+      <button class="iconBtn" id="mailBtn">Mail</button>
+      <div class="menuWrap">
+        <button class="avatar menuBtn" id="menuBtn" aria-label="Account menu"><span id="meInitial"></span></button>
+        <div class="menu" id="menuPop">
+          <div class="menu-head"><b id="meName"></b><span class="sub" id="meRole"></span></div>
+          <hr>
+          <button id="statsBtn">My statistics</button>
+          <button id="menuCalls">Call portal</button>
+          <button id="menuMail">Alimail</button>
+          <button id="menuAdmin" class="hide">Admin portal</button>
+          <hr>
+          <button id="logout" class="danger">Log out</button>
+        </div>
+      </div>
+    </div>
+    <div class="side-search"><input class="field" id="search" type="search" placeholder="Search chats (looks in all chats)"></div>
+    <div class="tabs">
+      <button class="tab on" id="tabOpen" data-tab="open">Open</button>
+      <button class="tab" id="tabMine" data-tab="mine">Mine</button>
+      <button class="tab" id="tabClosed" data-tab="closed">Closed</button>
+      <button class="tab" id="tabAll" data-tab="all">All</button>
+    </div>
+    <div id="chatList"></div>
+  </aside>
+
+  <section class="main">
+    <div id="banner"><span id="bannerText"></span><button id="bannerBtn">Show QR</button></div>
+    <div class="mainHead">
+      <button class="iconBtn" id="back">Back</button>
+      <div class="avatar" id="headAvatar" style="display:none"></div>
+      <div class="titles">
+        <strong id="mainTitle">Select a chat</strong>
+        <div class="sub" id="mainSub"></div>
+      </div>
+      <span class="statusPill" id="mainStatus" style="display:none"></span>
+      <div class="headBtns" id="headBtns" style="display:none">
+        <select class="iconBtn" id="assignSel" title="Assign this chat"></select>
+        <button class="iconBtn" id="closeBtn">Close chat</button>
+        <button class="iconBtn" id="detailsBtn">Customer info</button>
+      </div>
+    </div>
+    <div id="msgs"><div class="placeholder">Open a chat from the list on the left.</div></div>
+    <div class="composerWrap" id="composer">
+      <div id="qrPop"></div>
+      <div class="bar" id="replyBar"><div class="barText" id="replyText"></div><button id="replyX" aria-label="Cancel reply">&times;</button></div>
+      <div class="bar" id="attachBar"><div class="barText" id="attachText"></div><button id="attachX" aria-label="Remove file">&times;</button></div>
+      <div class="composer">
+        <input type="file" id="file" hidden>
+        <button class="iconBtn" id="attachBtn" title="Send a file or photo">Attach</button>
+        <textarea id="text" rows="1" placeholder="Type a message"></textarea>
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="info" id="infoPanel">
+    <div class="info-top"><span>Customer info</span><span class="spacer"></span><button class="iconBtn" id="infoClose">Close</button></div>
+    <div id="infoBody"><div class="empty">Open a chat to see the customer details.</div></div>
+  </aside>
+</div>
+
+<!-- My statistics -->
+<div class="modalWrap" id="statsModal">
+  <div class="modal" style="max-width:720px">
+    <div class="modalHead">
+      <h2>My statistics</h2>
+      <div class="row">
+        <select class="field" id="range" style="width:auto">
+          <option value="today">Today</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="all">All time</option>
+        </select>
+        <button class="iconBtn" id="statsClose">Close</button>
+      </div>
+    </div>
+    <div id="statsBody">Loading...</div>
+  </div>
+</div>
+
+<!-- Alimail overlay (inside the portal) -->
+<div id="mailWrap" class="mailWrap">
+  <div class="mailBar">
+    <span>Alimail</span>
+    <span class="spacer"></span>
+    <button class="iconBtn" id="mailClose">Back to WhatsApp</button>
+  </div>
+  <iframe id="mailFrame" title="Alimail"></iframe>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightImg" alt=""></div>
+
+<script>
+
+  let TOKEN = '', ME = null, VER = '', STATUS = 'offline', SIGN = 'groups', lastPulse = 0;
+  let infoOpen = window.innerWidth >= 1180, lastInfoAt = 0;
+  let listTab = 'open', agentsList = [], quick = [], qrItems = [];
+  let pending = [], lastList = [], lastHasMore = false;
+  let skipQr = false, wantQr = false, needRefresh = false;
+  let current = null, limit = 100, replyTo = null, attach = null;
+  let busy = false, timer = null, chatsData = [], lastSig = '', lastQr = '';
+  const mediaCache = {}, mediaPending = {}, mq = [];
+  let mActive = 0;
+
+  const $ = (id) => document.getElementById(id);
+  const isOn = (id) => $(id).classList.contains('on');
+
+  function run(fn, ...args) {
+    return new Promise((res, rej) => {
+      const r = google.script.run
+        .withSuccessHandler(res)
+        .withFailureHandler((e) => {
+          const m = (e && e.message) || String(e);
+          if (m.indexOf('SESSION_EXPIRED') >= 0) expire();
+          rej(new Error(m.replace(/^Error:\s*/, '')));
+        });
+      r[fn](...args);
+    });
+  }
+
+  function show(id) {
+    ['loginScreen', 'qrScreen', 'chatScreen'].forEach((s) => $(s).classList.toggle('on', s === id));
+  }
+
+  function expire(msg) {
+    TOKEN = ''; ME = null; current = null;
+    clearInterval(timer); timer = null;
+    document.body.classList.remove('isAdmin');
+    $('statsModal').classList.remove('on');
+    $('menuPop').classList.remove('on');
+    $('chatScreen').classList.remove('info-on');
+    closeMail();
+    show('loginScreen');
+    $('loginErr').textContent = msg || 'Session expired. Please log in again.';
+  }
+
+  /* ---------- Login ---------- */
+  $('pwToggle').addEventListener('click', () => {
+    const f = $('pw'), show = f.type === 'password';
+    f.type = show ? 'text' : 'password';
+    $('pwToggle').textContent = show ? 'Hide' : 'Show';
+  });
+  $('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = $('loginBtn');
+    btn.disabled = true; $('loginErr').textContent = '';
+    run('login', $('user').value, $('pw').value).then((r) => {
+      if (r.role === 'caller') throw new Error('This account can only use the call portal.');
+      TOKEN = r.token; ME = r;
+      $('meName').textContent = r.name;
+      $('meInitial').textContent = (r.name || '?').trim().charAt(0);
+      $('meRole').textContent = r.role === 'admin' ? 'Administrator' : 'Agent';
+      $('menuAdmin').classList.toggle('hide', r.role !== 'admin');
+      document.body.classList.toggle('isAdmin', r.role === 'admin');
+      $('pw').value = '';
+      skipQr = false; wantQr = false; VER = ''; needRefresh = true;
+      timer = setInterval(() => tick(false), 4000);
+      tick(true);
+      loadHelpers();
+    }).catch((err) => { $('loginErr').textContent = err.message; })
+      .then(() => { btn.disabled = false; });
+  });
+  $('logout').addEventListener('click', () => {
+    if (TOKEN) run('signOut', TOKEN).catch(() => {});
+    expire('You have been logged out.');
+  });
+  $('qrLogout').addEventListener('click', () => expire('You have been logged out.'));
+
+  /* ---------- Status / routing ---------- */
+  const STATUS_TEXT = {
+    starting: 'The bridge is starting. The QR code will appear shortly.',
+    authenticating: 'Logging in to WhatsApp...',
+    disconnected: 'The WhatsApp connection was lost. Reconnecting...',
+    offline: 'Cannot reach the bridge server. Check that BRIDGE_URL is correct and the server is running.',
+    qr: 'Scan the QR code with your phone.',
+  };
+
+  function route(p) {
+    STATUS = p.status;
+    const ready = p.status === 'ready';
+    if (ready) wantQr = false;
+    $('banner').style.display = ready ? 'none' : 'flex';
+    $('bannerText').textContent = 'WhatsApp is not connected. ' + (STATUS_TEXT[p.status] || '') + ' You can read old chats but cannot send messages.';
+
+    const stayInChat = ready || (!wantQr && (skipQr || isOn('chatScreen')));
+    if (stayInChat) {
+      if (!isOn('chatScreen')) { show('chatScreen'); needRefresh = true; }
+      return;
+    }
+    if (!isOn('qrScreen')) show('qrScreen');
+
+    const box = $('qrCanvas');
+    if (p.status === 'qr' && p.qr) {
+      $('qrTitle').textContent = 'Scan the QR code';
+      $('qrText').textContent = 'Scanning this code links your WhatsApp to this portal.';
+      box.style.display = 'block';
+      $('qrSteps').style.display = 'block';
+      if (p.qr !== lastQr) {
+        lastQr = p.qr;
+        box.innerHTML = '';
+        try {
+          new QRCode(box, { text: p.qr, width: 280, height: 280, correctLevel: QRCode.CorrectLevel.L });
+        } catch (e) {
+          box.textContent = 'Could not render the QR code: ' + e.message;
+        }
+      }
+    } else {
+      lastQr = '';
+      box.style.display = 'none';
+      $('qrSteps').style.display = 'none';
+      $('qrTitle').textContent = 'Connect WhatsApp';
+      $('qrText').textContent = STATUS_TEXT[p.status] || 'Please wait...';
+    }
+  }
+  $('viewOnly').addEventListener('click', () => { skipQr = true; wantQr = false; needRefresh = true; show('chatScreen'); tick(true); });
+  $('bannerBtn').addEventListener('click', () => { wantQr = true; show('qrScreen'); });
+
+  /* ---------- Polling ---------- */
+  function tick(force) {
+    if (busy || !TOKEN) return;
+    if (document.hidden && !force && Date.now() - lastPulse < 20000) return;
+    busy = true;
+    lastPulse = Date.now();
+    let newVer = VER;
+    run('pulse', TOKEN).then((p) => {
+      route(p);
+      newVer = p.ver;
+      SIGN = p.sign || 'groups';
+      const changed = force || needRefresh || p.ver !== VER;
+      if (!changed || !isOn('chatScreen')) return;
+      needRefresh = false;
+      return run('getChats', TOKEN).then((list) => {
+        renderChats(list);
+        return current ? loadMessages('auto', false) : null;
+      }).then(() => { VER = newVer; });
+    }).catch(() => {}).then(() => { busy = false; });
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(true); });
+
+  /* ---------- Helpers ---------- */
+  function fmtTime(ms) { return ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; }
+  function fmtListTime(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return d.toDateString() === new Date().toDateString()
+      ? fmtTime(ms)
+      : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  }
+  function dayLabel(ms) {
+    const d = new Date(ms), t = new Date(), y = new Date();
+    y.setDate(t.getDate() - 1);
+    if (d.toDateString() === t.toDateString()) return 'Today';
+    if (d.toDateString() === y.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  const PALETTE = ['#0e7c66', '#b3541e', '#2a5fb0', '#8a3fa0', '#9a7418', '#2c7f8f'];
+  function colorFor(s) {
+    let h = 0;
+    for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function fmtDur(sec) {
+    if (sec == null) return '-';
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  /* ---------- Chat list ---------- */
+  function renderChats(list) {
+    if (list) chatsData = list;
+    updateTabs(); updateHeader();
+    const q = $('search').value.trim().toLowerCase();
+    const box = $('chatList');
+    box.innerHTML = '';
+    // Searching looks in all chats (open + closed); otherwise the selected tab decides
+    const rows = chatsData.filter((c) => {
+      if (q) return c.name.toLowerCase().indexOf(q) >= 0 || c.chatId.indexOf(q) >= 0;
+      if (listTab === 'all') return true;
+      if (listTab === 'mine') return !isClosed(c) && !!ME && c.assignee === ME.username;
+      return (listTab === 'closed') === isClosed(c);
+    });
+    if (!rows.length) {
+      let msg = 'No chats found.';
+      if (!q && !chatsData.length) msg = 'No chats yet. New messages will appear here, or use New chat to message a number.';
+      else if (!q && listTab === 'open') msg = 'No open chats. A chat reappears here when the customer sends a new message. Replied chats are in the Closed tab.';
+      else if (!q && listTab === 'closed') msg = 'No closed chats.';
+      else if (!q && listTab === 'mine') msg = 'No open chats are assigned to you. Replying to a chat assigns it to you, or use the assign menu above the chat.';
+      box.appendChild(el('div', 'empty', msg));
+      return;
+    }
+    rows.forEach((c) => {
+      const active = current && current.chatId === c.chatId;
+      const row = el('div', 'chat' + (active ? ' active' : ''));
+      const av = el('div', 'avatar' + (c.isGroup ? ' group' : ''), (c.name || '?').trim().charAt(0).toUpperCase());
+      const main = el('div', 'chatMain');
+      const top = el('div', 'chatTop');
+      top.appendChild(el('span', 'chatName', c.name || c.chatId));
+      top.appendChild(el('span', 'chatTime', fmtListTime(c.time)));
+      const bottom = el('div', 'chatTop');
+      bottom.appendChild(el('span', 'chatLast', (c.lastAgent ? c.lastAgent + ': ' : '') + c.last));
+      if (c.assignee) bottom.appendChild(el('span', 'statusPill', c.assigneeName || c.assignee));
+      if (isClosed(c) && listTab !== 'closed') bottom.appendChild(el('span', 'statusPill', 'closed'));
+      if (c.unread > 0 && !active) bottom.appendChild(el('span', 'badge', c.unread));
+      main.appendChild(top); main.appendChild(bottom);
+      row.appendChild(av); row.appendChild(main);
+      row.addEventListener('click', () => openChat(c));
+      box.appendChild(row);
+    });
+  }
+  $('search').addEventListener('input', () => renderChats());
+
+  /* ---------- Open / Closed ---------- */
+  function isClosed(c) { return c.status === 'closed'; }
+  function updateTabs() {
+    const open = chatsData.filter((c) => !isClosed(c)).length;
+    $('tabOpen').textContent = 'Open (' + open + ')';
+    $('tabClosed').textContent = 'Closed (' + (chatsData.length - open) + ')';
+    $('tabAll').textContent = 'All (' + chatsData.length + ')';
+    $('tabMine').textContent = 'Mine (' + chatsData.filter((c) => !isClosed(c) && ME && c.assignee === ME.username).length + ')';
+    ['tabOpen', 'tabMine', 'tabClosed', 'tabAll'].forEach((id) => $(id).classList.toggle('on', $(id).dataset.tab === listTab));
+  }
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => { listTab = b.dataset.tab; renderChats(); }));
+
+  function updateHeader() {
+    const has = !!current;
+    $('headBtns').style.display = has ? 'flex' : 'none';
+    $('mainStatus').style.display = has ? 'inline-flex' : 'none';
+    $('headAvatar').style.display = has ? '' : 'none';
+    if (!has) {
+      $('mainTitle').textContent = 'Select a chat';
+      $('mainSub').textContent = '';
+      $('chatScreen').classList.remove('info-on');
+      return;
+    }
+    const c = chatsData.filter((x) => x.chatId === current.chatId)[0];
+    const closed = !!c && isClosed(c);
+    $('mainStatus').textContent = closed ? 'Closed' : 'Open';
+    $('mainStatus').className = 'statusPill' + (closed ? '' : ' open');
+    $('closeBtn').textContent = closed ? 'Reopen chat' : 'Close chat';
+
+    // Assign menu: admins can pick anyone, agents can take a chat for themselves
+    const cur = c ? (c.assignee || '') : '';
+    const isAdmin = !!ME && ME.role === 'admin';
+    const opts = [['', 'Unassigned']];
+    agentsList.forEach((a) => {
+      if (isAdmin) opts.push([a.username, a.name + (a.online ? ' (online)' : '')]);
+      else if (ME && a.username === ME.username) opts.push([a.username, 'Assign to me']);
+    });
+    if (cur && !opts.some((o) => o[0] === cur)) opts.push([cur, c.assigneeName || cur]);
+    const sig = opts.map((o) => o[0] + ':' + o[1]).join('|');
+    const sel = $('assignSel');
+    if (sel.dataset.sig !== sig) {
+      sel.innerHTML = '';
+      opts.forEach((o) => sel.appendChild(new Option(o[1], o[0])));
+      sel.dataset.sig = sig;
+    }
+    sel.value = cur;
+
+    // Tell the agent when their name is added to what they send
+    const signed = SIGN === 'all' || (SIGN === 'groups' && current.isGroup);
+    $('text').placeholder = signed && ME ? 'Type a message (sent with your name: ' + ME.name + ')' : 'Type a message';
+    $('assignSel').style.display = current.isGroup ? 'none' : '';
+  }
+
+  $('assignSel').addEventListener('change', () => {
+    if (!current) return;
+    const to = $('assignSel').value;
+    const label = $('assignSel').options[$('assignSel').selectedIndex].text;
+    run('setChatAssignee', TOKEN, current.chatId, to).then(() => {
+      const c = chatsData.filter((x) => x.chatId === current.chatId)[0];
+      if (c) { c.assignee = to; c.assigneeName = to ? label : ''; }
+      renderChats();
+      if (infoOpen) loadInfo();
+      tick(true);
+    }).catch((err) => { alert(err.message); updateHeader(); });
+  });
+
+  /* ---------- Helpers loaded after login ---------- */
+  function loadHelpers() {
+    run('getAssignableAgents', TOKEN).then((l) => { agentsList = l; updateHeader(); }).catch(() => {});
+    loadQuick().catch(() => {});
+  }
+  setInterval(() => {
+    if (TOKEN && ME && ME.role === 'admin' && !document.hidden) {
+      run('getAssignableAgents', TOKEN).then((l) => { agentsList = l; updateHeader(); }).catch(() => {});
+    }
+  }, 60000);
+
+  function loadQuick() {
+    return run('getQuickReplies', TOKEN).then((l) => { quick = l; return l; });
+  }
+
+  /* ---------- Quick replies: type /shortcut ---------- */
+  function qrOpen() { return $('qrPop').style.display === 'block'; }
+  function qrHide() { $('qrPop').style.display = 'none'; qrItems = []; }
+  function qrPick(i) {
+    const it = qrItems[i];
+    if (!it) return;
+    const ta = $('text');
+    ta.value = it.text;
+    ta.dispatchEvent(new Event('input'));
+    qrHide();
+    ta.focus();
+  }
+  $('text').addEventListener('input', () => {
+    const v = $('text').value;
+    if (v.charAt(0) !== '/' || /\s/.test(v)) { qrHide(); return; }
+    const q = v.slice(1).toLowerCase();
+    qrItems = quick.filter((x) => x.shortcut.indexOf(q) === 0).slice(0, 8);
+    if (!qrItems.length) { qrHide(); return; }
+    const pop = $('qrPop');
+    pop.innerHTML = '';
+    qrItems.forEach((x, i) => {
+      const row = el('div', 'qrItem');
+      row.appendChild(el('b', '', '/' + x.shortcut));
+      row.appendChild(el('span', '', '  ' + x.text));
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); qrPick(i); });
+      pop.appendChild(row);
+    });
+    pop.style.display = 'block';
+  });
+
+  $('closeBtn').addEventListener('click', () => {
+    if (!current) return;
+    const c = chatsData.filter((x) => x.chatId === current.chatId)[0];
+    const to = c && isClosed(c) ? 'open' : 'closed';
+    run('setChatStatus', TOKEN, current.chatId, to).then(() => {
+      if (c) { c.status = to; if (to === 'closed') c.unread = 0; }
+      renderChats();
+      if (infoOpen) loadInfo();
+      tick(true);
+    }).catch((err) => alert(err.message));
+  });
+
+  /* ---------- Customer info panel ---------- */
+  function setInfo(open) {
+    infoOpen = open;
+    $('chatScreen').classList.toggle('info-on', open && !!current);
+    if (open && current) loadInfo();
+  }
+  function infoSection(title, rows) {
+    const s = el('div', 'info-sec');
+    s.appendChild(el('h4', '', title));
+    rows.forEach((r) => {
+      const row = el('div', 'kv');
+      row.appendChild(el('span', '', r[0]));
+      const v = el('span', '');
+      if (r[1] && r[1].nodeType) v.appendChild(r[1]); else v.textContent = r[1];
+      row.appendChild(v);
+      s.appendChild(row);
+    });
+    return s;
+  }
+  function loadInfo() {
+    const chat = current;
+    if (!chat) return;
+    lastInfoAt = Date.now();
+    run('getChatDetails', TOKEN, chat.chatId).then((d) => {
+      if (current && current.chatId === chat.chatId) renderInfo(d);
+    }).catch((err) => { $('infoBody').textContent = err.message; });
+  }
+  function renderInfo(d) {
+    const box = $('infoBody');
+    box.innerHTML = '';
+    const when = (ms) => (ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-');
+
+    const head = el('div', 'info-head');
+    head.appendChild(el('div', 'avatar lg' + (d.isGroup ? ' group' : ''), (d.name || '?').trim().charAt(0)));
+    head.appendChild(el('h3', '', d.name || d.chatId));
+    head.appendChild(el('div', 'sub', d.phone ? '+' + d.phone : (d.isGroup ? 'WhatsApp group' : 'WhatsApp ID hidden')));
+    box.appendChild(head);
+
+    const status = el('span', 'pill ' + (d.status === 'closed' ? '' : 'open'), d.status === 'closed' ? 'Closed' : 'Open');
+    box.appendChild(infoSection('Conversation', [
+      ['Status', status],
+      ['Assigned to', d.isGroup ? 'Shared with everyone' : (d.assigneeName || 'Unassigned')],
+      ['Conversations', d.conversations],
+      ['First message', when(d.firstTs)],
+      ['Last message', when(d.lastTs)],
+    ]));
+
+    const act = el('div', 'info-sec');
+    act.appendChild(el('h4', '', 'Activity'));
+    const grid = el('div', 'mini');
+    [['Received', d.incoming], ['Sent', d.outgoing], ['Avg reply', fmtDur(d.avgRespSec)]].forEach((x) => {
+      const c = document.createElement('div');
+      c.appendChild(el('b', '', x[1]));
+      c.appendChild(el('span', '', x[0]));
+      grid.appendChild(c);
+    });
+    act.appendChild(grid);
+    box.appendChild(act);
+
+    if (d.isGroup && d.participants) box.appendChild(infoSection('Group', [['People who wrote here', d.participants]]));
+    box.appendChild(infoSection('Replies by agent', d.agents.length ? d.agents.map((a) => [a.name, a.replies]) : [['No replies yet', '-']]));
+    box.appendChild(infoSection('Media shared', [['Photos', d.media.image], ['Videos', d.media.video], ['Voice / audio', d.media.audio], ['Files', d.media.file]]));
+    if (!d.isGroup) {
+      const c = d.calls;
+      box.appendChild(infoSection('Calls with this contact', c.total
+        ? [['Total calls', c.total], ['Inbound', c.inbound], ['Missed', c.missed], ['Last call', when(c.lastMs) + ' (' + c.lastStatus + ')']]
+        : [['No calls yet', '-']]));
+    }
+  }
+  $('detailsBtn').addEventListener('click', () => setInfo(!infoOpen));
+  $('infoClose').addEventListener('click', () => setInfo(false));
+
+  function openChat(c) {
+    current = { chatId: c.chatId, name: c.name || c.chatId, isGroup: !!c.isGroup };
+    limit = 100; lastSig = '';
+    lastList = []; lastHasMore = false;
+    clearReply(); clearAttach();
+    $('mainTitle').textContent = current.name;
+    $('mainSub').textContent = current.isGroup ? 'Group chat' : (/@c\.us$/.test(current.chatId) ? '+' + current.chatId.split('@')[0] : 'WhatsApp contact');
+    const av = $('headAvatar');
+    av.className = 'avatar' + (current.isGroup ? ' group' : '');
+    av.textContent = (current.name || '?').trim().charAt(0);
+    updateHeader();
+    setInfo(infoOpen);
+    $('composer').style.display = 'flex';
+    $('chatScreen').classList.add('open');
+    $('msgs').innerHTML = '';
+    $('msgs').appendChild(el('div', 'placeholder', 'Loading...'));
+    renderChats();
+    run('markRead', TOKEN, c.chatId).then(() => { c.unread = 0; renderChats(); }).catch(() => {});
+    loadMessages('bottom', true);
+    $('text').focus();
+  }
+
+  /* ---------- Messages ---------- */
+  function pendingBubble(p) {
+    const b = el('div', 'bubble out');
+    b.style.opacity = '0.7';
+    const w = el('div', 'who', ME ? ME.name : 'You');
+    w.style.color = 'var(--accent)';
+    b.appendChild(w);
+    b.appendChild(el('div', 'text', p.text));
+    const meta = el('div', 'meta');
+    meta.appendChild(el('span', '', 'Sending...'));
+    b.appendChild(meta);
+    return b;
+  }
+
+  function loadMessages(mode, skipSigCheck) {
+    const chat = current;
+    return run('getMessages', TOKEN, chat.chatId, limit).then((r) => {
+      if (!current || current.chatId !== chat.chatId) return;
+      const list = r.messages;
+      let sum = 0;
+      list.forEach((m) => { sum += (m.ack || 0) + m.body.length; });
+      const sig = list.length + '|' + sum + '|' + (list.length ? list[list.length - 1].id : '');
+      if (!skipSigCheck && sig === lastSig) return;
+      if (!skipSigCheck && mediaPlaying()) return; // re-rendering while media is playing would interrupt it
+      lastSig = sig;
+      lastList = list; lastHasMore = r.hasMore;
+      // A message we sent is shown as "sending" until the saved copy arrives (or 60 seconds pass)
+      pending = pending.filter((p) => Date.now() - p.ts < 60000 &&
+        !(p.chatId === chat.chatId && list.some((m) => m.dir === 'out' && m.body === p.text && m.time >= p.ts - 10000)));
+      renderMessages(list, r.hasMore, mode);
+      if (infoOpen && !skipSigCheck && Date.now() - lastInfoAt > 8000) loadInfo();
+    });
+  }
+
+  function mediaPlaying() {
+    return Array.prototype.some.call(document.querySelectorAll('#msgs video, #msgs audio'), (v) => !v.paused && !v.ended);
+  }
+
+  function renderMessages(list, hasMore, mode) {
+    const box = $('msgs');
+    const prevH = box.scrollHeight, prevT = box.scrollTop;
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+    box.innerHTML = '';
+    const pend = pending.filter((p) => current && p.chatId === current.chatId);
+
+    if (!list.length && !pend.length) {
+      box.appendChild(el('div', 'placeholder', 'No messages yet. Send the first message.'));
+      return;
+    }
+    if (hasMore) {
+      const b = el('button', 'iconBtn olderBtn', 'Load older messages');
+      b.addEventListener('click', () => { limit += 100; loadMessages('older', true); });
+      box.appendChild(b);
+    }
+    let lastDay = '';
+    list.forEach((m) => {
+      const day = new Date(m.time).toDateString();
+      if (day !== lastDay) { lastDay = day; box.appendChild(el('div', 'dayChip', dayLabel(m.time))); }
+      box.appendChild(buildBubble(m));
+    });
+    pend.forEach((p) => box.appendChild(pendingBubble(p)));
+
+    if (mode === 'bottom' || (mode === 'auto' && nearBottom)) box.scrollTop = box.scrollHeight;
+    else if (mode === 'older') box.scrollTop = box.scrollHeight - prevH + prevT;
+    else box.scrollTop = prevT;
+  }
+
+  function buildBubble(m) {
+    const out = m.dir === 'out';
+    const b = el('div', 'bubble' + (out ? ' out' : ''));
+    if (out) {
+      const w = el('div', 'who', m.agentName || 'Phone');
+      w.style.color = 'var(--accent)';
+      b.appendChild(w);
+    } else if (current && current.isGroup && m.sender) {
+      const w = el('div', 'who', m.sender);
+      w.style.color = colorFor(m.sender);
+      b.appendChild(w);
+    }
+    if (m.quoted) b.appendChild(el('div', 'quote', m.quoted));
+    if (m.fileId) b.appendChild(buildMedia(m));
+    else if (m.mtype) {
+      const why = String(m.mname || '').replace(/^media save failed:?\s*/, '');
+      b.appendChild(el('div', 'media', '[Media could not be saved to Google Drive]' + (why ? ' Reason: ' + why : '')));
+    }
+    if (m.body) {
+      const deleted = m.body === 'This message was deleted';
+      b.appendChild(el('div', 'text' + (deleted ? ' deleted' : ''), m.body));
+    }
+    const meta = el('div', 'meta');
+    meta.appendChild(el('span', '', fmtTime(m.time)));
+    if (out) {
+      const t = el('span', 'tick' + (m.ack >= 3 ? ' read' : ''),
+        m.ack < 0 ? '!' : m.ack >= 2 ? '\u2713\u2713' : m.ack === 1 ? '\u2713' : '\u2026');
+      meta.appendChild(t);
+    }
+    const rb = el('button', '', 'Reply');
+    rb.type = 'button';
+    rb.addEventListener('click', () => setReply(m));
+    meta.appendChild(rb);
+    b.appendChild(meta);
+    return b;
+  }
+
+  /* ---------- Media ---------- */
+  function b64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  // Fetches a large file in chunks, then builds a Blob
+  function fetchMedia(fileId, hint) {
+    const parts = [];
+    function next(i) {
+      return run('getMedia', TOKEN, fileId, i).then((r) => {
+        if (r.tooLarge) return r;
+        parts.push(b64ToBytes(r.data));
+        if (i + 1 < r.total) return next(i + 1).then((x) => x);
+        const generic = !r.mime || r.mime === 'application/octet-stream';
+        const type = generic ? (hint || r.mime || '') : r.mime;
+        return { mime: type, name: r.name, size: r.size, url: URL.createObjectURL(new Blob(parts, { type: type })) };
+      });
+    }
+    return next(0);
+  }
+  function loadMedia(fileId, hint) {
+    if (mediaCache[fileId]) return Promise.resolve(mediaCache[fileId]);
+    if (mediaPending[fileId]) return mediaPending[fileId];
+    mediaPending[fileId] = new Promise((res, rej) => { mq.push({ fileId, hint, res, rej }); pump(); });
+    return mediaPending[fileId];
+  }
+  function pump() {
+    while (mActive < 2 && mq.length) {
+      const j = mq.shift();
+      mActive++;
+      fetchMedia(j.fileId, j.hint).then((r) => {
+        mediaCache[j.fileId] = r;
+        j.res(r);
+      }).catch(j.rej).then(() => { mActive--; delete mediaPending[j.fileId]; pump(); });
+    }
+  }
+  function buildMedia(m) {
+    const t = m.mtype || '';
+    const isImage = t.indexOf('image/') === 0;
+    const isVideo = t.indexOf('video/') === 0;
+    const isAudio = t.indexOf('audio/') === 0;
+    const box = el('div', 'media');
+
+    function render(r) {
+      box.textContent = '';
+      if (r.tooLarge) {
+        box.textContent = (m.mname || 'File') + ' is too large (' + (r.size / 1048576).toFixed(1) + ' MB) to preview here. It is saved in the "WhatsApp Portal Media" folder in Google Drive.';
+        return;
+      }
+      if (isImage) {
+        const img = new Image();
+        img.src = r.url; img.alt = m.mname || 'image';
+        img.addEventListener('click', () => { $('lightImg').src = r.url; $('lightbox').classList.add('on'); });
+        box.appendChild(img);
+      } else if (isVideo) {
+        const v = document.createElement('video');
+        v.src = r.url; v.controls = true; v.playsInline = true; v.preload = 'auto';
+        box.appendChild(v);
+      } else if (isAudio) {
+        const a = document.createElement('audio');
+        a.src = r.url; a.controls = true; a.preload = 'auto';
+        box.appendChild(a);
+      }
+      const dl = document.createElement('a');
+      dl.href = r.url; dl.download = r.name || m.mname || 'file'; dl.className = 'dl';
+      dl.textContent = (isImage || isVideo || isAudio) ? 'Download' : 'Download: ' + (r.name || m.mname || 'file');
+      box.appendChild(dl);
+    }
+
+    function start() {
+      box.textContent = isVideo ? 'Loading video, large files can take a few seconds...' : 'Loading...';
+      loadMedia(m.fileId, t).then(render).catch(() => {
+        box.textContent = '';
+        const b = el('button', 'iconBtn', 'Could not load. Try again');
+        b.type = 'button';
+        b.addEventListener('click', start);
+        box.appendChild(b);
+      });
+    }
+
+    // Videos do not auto-load (large files); click to load. Images and audio load automatically.
+    if (isVideo && !mediaCache[m.fileId]) {
+      const b = el('button', 'iconBtn', 'Play video' + (m.mname ? ' (' + m.mname + ')' : ''));
+      b.type = 'button';
+      b.addEventListener('click', start);
+      box.appendChild(b);
+    } else {
+      start();
+    }
+    return box;
+  }
+  $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('on'));
+
+  /* ---------- Reply / attach / send ---------- */
+  function setReply(m) {
+    replyTo = { id: m.id, text: m.body || m.mname || 'media' };
+    $('replyText').textContent = 'Reply: ' + replyTo.text;
+    $('replyBar').style.display = 'flex';
+    $('text').focus();
+  }
+  function clearReply() { replyTo = null; $('replyBar').style.display = 'none'; }
+  $('replyX').addEventListener('click', clearReply);
+
+  function clearAttach() { attach = null; $('attachBar').style.display = 'none'; $('file').value = ''; }
+  $('attachX').addEventListener('click', clearAttach);
+  $('attachBtn').addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', (e) => pickFile(e.target.files[0]));
+  $('text').addEventListener('paste', (e) => {
+    const files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length) { e.preventDefault(); pickFile(files[0]); }
+  });
+
+  function pickFile(f) {
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { alert('Files larger than 10 MB cannot be sent.'); $('file').value = ''; return; }
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result);
+      attach = { name: f.name || 'file', mime: f.type || 'application/octet-stream', data: s.slice(s.indexOf(',') + 1), size: f.size };
+      $('attachText').textContent = 'Attached: ' + attach.name + ' (' + (f.size / 1024).toFixed(0) + ' KB). Type a caption below if you like.';
+      $('attachBar').style.display = 'flex';
+    };
+    r.readAsDataURL(f);
+  }
+
+  function send() {
+    if (!current) return;
+    const ta = $('text');
+    const text = ta.value.trim();
+    if (!text && !attach) return;
+    const chatId = current.chatId;
+    const quotedId = replyTo ? replyTo.id : '';
+
+    if (!attach) {
+      // Text: show the message at once and send it in the background
+      const item = { chatId: chatId, text: text, ts: Date.now() };
+      pending.push(item);
+      ta.value = ''; ta.style.height = 'auto';
+      qrHide(); clearReply();
+      renderMessages(lastList, lastHasMore, 'bottom');
+      run('sendMessage', TOKEN, chatId, text, quotedId).then(() => {
+        if (current && current.chatId === chatId) loadMessages('bottom', true).catch(() => {});
+        setTimeout(() => tick(true), 800);
+      }, (err) => {
+        pending = pending.filter((x) => x !== item);
+        if (current && current.chatId === chatId) renderMessages(lastList, lastHasMore, 'bottom');
+        if (!ta.value) ta.value = text;
+        alert('Send failed: ' + err.message);
+      });
+      return;
+    }
+
+    // File (with optional caption): wait for the upload to finish
+    const btn = $('sendBtn');
+    btn.disabled = true;
+    run('sendMedia', TOKEN, chatId, { mimetype: attach.mime, filename: attach.name, data: attach.data }, text, quotedId).then(() => {
+      ta.value = ''; ta.style.height = 'auto';
+      clearAttach(); clearReply();
+      setTimeout(() => tick(true), 1500);
+      setTimeout(() => tick(true), 4000);
+    }).catch((err) => alert('Send failed: ' + err.message))
+      .then(() => { btn.disabled = false; ta.focus(); });
+  }
+  $('sendBtn').addEventListener('click', send);
+  $('text').addEventListener('keydown', (e) => {
+    if (qrOpen() && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); qrPick(0); return; }
+    if (qrOpen() && e.key === 'Escape') { qrHide(); return; }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  $('text').addEventListener('input', (e) => {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
+  });
+
+  /* ---------- New chat / back ---------- */
+  $('newChat').addEventListener('click', () => {
+    const n = prompt('Enter the number with country code, digits only (e.g. 8801XXXXXXXXX):');
+    if (!n) return;
+    const digits = n.replace(/\D/g, '');
+    if (digits.length < 8) { alert('That number does not look valid.'); return; }
+    openChat({ chatId: digits + '@c.us', name: '+' + digits, isGroup: false, unread: 0 });
+    $('msgs').innerHTML = '';
+    $('msgs').appendChild(el('div', 'placeholder', 'New chat. Send the first message.'));
+  });
+  $('back').addEventListener('click', () => { $('chatScreen').classList.remove('open'); current = null; renderChats(); });
+
+  /* ---------- Account menu ---------- */
+  $('menuBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('menuPop').classList.toggle('on');
+  });
+  document.addEventListener('click', (e) => {
+    if (!$('menuPop').contains(e.target)) $('menuPop').classList.remove('on');
+  });
+  function openApp(which) {
+    $('menuPop').classList.remove('on');
+    const w = window.open('', '_blank'); // opened straight from the click so it is not blocked
+    run('getAppLinks', TOKEN).then((l) => {
+      if (!l[which]) throw new Error('This page is not available for your account.');
+      if (w) w.location.href = l[which]; else alert('Link: ' + l[which]);
+    }).catch((err) => { if (w) w.close(); alert(err.message); });
+  }
+  $('menuCalls').addEventListener('click', () => openApp('calls'));
+  $('menuAdmin').addEventListener('click', () => openApp('admin'));
+  $('menuMail').addEventListener('click', () => { $('menuPop').classList.remove('on'); openMail(); });
+
+  /* ---------- Alimail inside the portal ---------- */
+  let mailLoaded = false;
+  function openMail() {
+    $('mailWrap').classList.add('on');
+    if (mailLoaded) return;
+    run('getAppLinks', TOKEN).then((l) => {
+      if (!l.mail) throw new Error('ALIMAIL_URL is not set in Script properties.');
+      $('mailFrame').src = l.mail;
+      mailLoaded = true;
+    }).catch((err) => { alert(err.message); closeMail(); });
+  }
+  function closeMail() { $('mailWrap').classList.remove('on'); }
+  $('mailBtn').addEventListener('click', openMail);
+  $('mailClose').addEventListener('click', closeMail);
+
+  /* ---------- Stats ---------- */
+  function th(t, num) { return el('th', num ? 'num' : '', t); }
+  function td(t, num) { return el('td', num ? 'num' : '', t); }
+
+  function renderDaily(body, daily) {
+    if (!daily || !daily.length) return;
+    body.appendChild(el('h3', '', 'Din-wise'));
+    const wrap = el('div', 'tableWrap');
+    const table = document.createElement('table');
+    const hr = document.createElement('tr');
+    [['Date'], ['Messages received', 1], ['Customers', 1], ['Agent replies', 1], ['Chats replied', 1]]
+      .forEach((h) => hr.appendChild(th(h[0], h[1])));
+    const thead = document.createElement('thead'); thead.appendChild(hr); table.appendChild(thead);
+    const tb = document.createElement('tbody');
+    daily.forEach((d) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(d.day));
+      tr.appendChild(td(d.incoming, 1));
+      tr.appendChild(td(d.customers, 1));
+      tr.appendChild(td(d.replies, 1));
+      tr.appendChild(td(d.chatsReplied, 1));
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); wrap.appendChild(table); body.appendChild(wrap);
+  }
+
+  function loadStats() {
+    const body = $('statsBody');
+    body.textContent = 'Loading...';
+    run('getStats', TOKEN, $('range').value).then((s) => {
+      body.innerHTML = '';
+      if (s.totals) {
+        const sum = el('div', 'summary');
+        [['Messages received', s.totals.incoming], ['Messages answered', s.totals.answered],
+         ['Unanswered messages', s.totals.unanswered], ['Customers (chats)', s.totals.customers],
+         ['Chats served', s.totals.servedChats], ['Chats pending', s.totals.pendingChats],
+         ['Agent replies', s.totals.outgoingAgents], ['Replies from phone', s.totals.outgoingPhone]].forEach((x) => {
+          const d = el('div', 'stat');
+          d.appendChild(el('b', '', x[1]));
+          d.appendChild(el('span', '', x[0]));
+          sum.appendChild(d);
+        });
+        body.appendChild(sum);
+      }
+      if (!s.agents.length) {
+        body.appendChild(el('div', 'empty', 'No replies in this period.'));
+        renderDaily(body, s.daily);
+        return;
+      }
+      const wrap = el('div', 'tableWrap');
+      const table = document.createElement('table');
+      const hr = document.createElement('tr');
+      [['Agent'], ['Replies', 1], ['Chats', 1], ['Avg first response', 1], ['Last reply']].forEach((h) => hr.appendChild(th(h[0], h[1])));
+      const thead = document.createElement('thead'); thead.appendChild(hr); table.appendChild(thead);
+      const tb = document.createElement('tbody');
+      s.agents.forEach((a) => {
+        const tr = document.createElement('tr');
+        tr.appendChild(td(a.name));
+        tr.appendChild(td(a.replies, 1));
+        tr.appendChild(td(a.chats, 1));
+        tr.appendChild(td(fmtDur(a.avgRespSec), 1));
+        tr.appendChild(td(a.lastTs ? new Date(a.lastTs).toLocaleString() : '-'));
+        tb.appendChild(tr);
+      });
+      table.appendChild(tb); wrap.appendChild(table); body.appendChild(wrap);
+      renderDaily(body, s.daily);
+    }).catch((err) => { body.textContent = err.message; });
+  }
+  $('statsBtn').addEventListener('click', () => { $('menuPop').classList.remove('on'); $('statsModal').classList.add('on'); loadStats(); });
+  $('statsClose').addEventListener('click', () => $('statsModal').classList.remove('on'));
+  $('range').addEventListener('change', loadStats);
+</script>
+</body>
+</html>

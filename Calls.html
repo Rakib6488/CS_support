@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e9efee;
+    --panel: #ffffff;
+    --ink: #1a2a28;
+    --muted: #6b7c79;
+    --line: #d9e3e1;
+    --accent: #0e7c66;
+    --accent-ink: #ffffff;
+    --danger: #b3321f;
+    --warn: #9a6a00;
+    --blue: #2a5fb0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1a19;
+      --panel: #16231f;
+      --ink: #e3ecea;
+      --muted: #8da29e;
+      --line: #2a3b37;
+      --accent: #2fb594;
+      --accent-ink: #08201a;
+      --danger: #ef7b66;
+      --warn: #e0b04a;
+      --blue: #6a9be0;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Instrument Sans', system-ui, sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .login { width: 100%; max-width: 380px; padding: 28px; }
+  .login h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+  .login p { margin: 0 0 18px; color: var(--muted); line-height: 1.45; }
+  .field { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; }
+  .login .field { margin-bottom: 12px; }
+  .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  .btn.full { width: 100%; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn.small { padding: 5px 10px; font-size: 13px; border-radius: 7px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .err { color: var(--danger); min-height: 20px; margin: 8px 0 0; font-size: 14px; }
+
+  #app { display: none; max-width: 1180px; margin: 0 auto; padding: 16px; }
+  .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .topbar h1 { font-size: 22px; font-weight: 600; margin: 0; flex: 1; }
+  .topbar .who { color: var(--muted); font-size: 14px; }
+  .pill { display: inline-block; border-radius: 10px; padding: 1px 9px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok, .pill.completed, .pill.taken { color: var(--accent); border-color: var(--accent); }
+  .pill.bad, .pill.missed, .pill.rejected { color: var(--danger); border-color: var(--danger); }
+  .pill.ringing, .pill.in-progress { color: var(--warn); border-color: var(--warn); }
+
+  .note { color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  nav { display: flex; gap: 6px; margin-bottom: 12px; }
+  nav button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 18px; cursor: pointer; font-weight: 500; }
+  nav button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .page { display: none; }
+  .page.on { display: block; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .stat b { display: block; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .sec h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .sec .sub { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+  .bar label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+  .bar .field { width: auto; min-width: 130px; }
+  .tableWrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 600; color: var(--muted); }
+  td.wrap { white-space: normal; min-width: 160px; max-width: 280px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .acts { display: flex; gap: 6px; }
+  .empty { color: var(--muted); padding: 14px 4px; }
+  .sec { margin-bottom: 12px; }
+
+  .active { border-color: var(--warn); }
+  .active .big { font-size: 22px; font-weight: 600; margin: 4px 0; }
+  .timer { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 6px 0; }
+  .formRow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .formRow label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+
+  /* Incoming call overlay */
+  #ringWrap { position: fixed; inset: 0; background: rgba(10, 20, 18, .7); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100; }
+  #ringWrap.on { display: flex; }
+  .ringCard { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 26px; width: 100%; max-width: 420px; text-align: center; }
+  .ringIcon { width: 74px; height: 74px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 30px; font-weight: 600; margin: 0 auto 12px; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(14, 124, 102, .55); } 70% { box-shadow: 0 0 0 22px rgba(14, 124, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 124, 102, 0); } }
+  @media (prefers-reduced-motion: reduce) { .ringIcon { animation: none; } }
+  .ringCard h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+  .ringCard .who { font-size: 22px; font-weight: 600; margin: 8px 0 2px; overflow-wrap: anywhere; }
+  .ringCard .meta { color: var(--muted); margin-bottom: 14px; }
+  .ringBtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .ringHint { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 0; }
+
+  /* Finish modal */
+  .modalWrap { position: fixed; inset: 0; background: rgba(10, 20, 18, .55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 90; }
+  .modalWrap.on { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: 100%; max-width: 460px; padding: 20px; }
+  .modal h3 { margin: 0 0 12px; font-size: 17px; font-weight: 600; }
+  .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .modal .row { display: flex; gap: 10px; }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; display: none; z-index: 120; max-width: 90%; }
+</style>
+</head>
+<body>
+
+<div class="center" id="loginScreen">
+  <form class="card login" id="loginForm">
+    <h1>WhatsApp calls</h1>
+    <p>Log in with your agent username and password to receive and log WhatsApp calls.</p>
+    <input id="user" class="field" type="text" placeholder="Username" autocomplete="username" autocapitalize="none" autofocus>
+    <input id="pw" class="field" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn full" id="loginBtn" type="submit">Log in</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>WhatsApp calls</h1>
+    <span class="pill" id="bridgePill">Checking...</span>
+    <button class="btn ghost small" id="soundBtn">Sound: on</button>
+    <span class="who" id="who"></span>
+    <button class="btn ghost small" id="logout">Log out</button>
+  </div>
+  <p class="note">This portal alerts you when a WhatsApp call comes in and records every call. Answer calls in WhatsApp on the phone linked to this number: WhatsApp does not let this portal carry call audio. Keep this tab open to hear the ring.</p>
+
+  <nav id="nav">
+    <button data-page="inbound" class="on">Inbound</button>
+    <button data-page="outbound">Outbound</button>
+    <button data-page="history">History</button>
+  </nav>
+
+  <!-- Inbound -->
+  <section class="page on" id="page-inbound">
+    <div class="stats" id="inStats"></div>
+    <div class="card sec">
+      <div class="bar">
+        <div style="flex:1"><h2>Inbound calls</h2><p class="sub" style="margin:0">Last 7 days. Take a ringing call to claim it, then answer it in WhatsApp.</p></div>
+        <label>Status
+          <select class="field" id="inFilter">
+            <option value="">All</option>
+            <option value="ringing">Ringing</option>
+            <option value="taken">Taken</option>
+            <option value="completed">Completed</option>
+            <option value="missed">Missed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </label>
+      </div>
+      <div class="tableWrap" id="inTable"></div>
+    </div>
+  </section>
+
+  <!-- Outbound -->
+  <section class="page" id="page-outbound">
+    <div class="card sec" id="activeCard" style="display:none"></div>
+    <div class="card sec">
+      <h2>Make a call</h2>
+      <p class="sub">Enter the customer's number. WhatsApp opens in a new tab; tap the call icon there to start the call. Come back and press End call to save it.</p>
+      <form class="formRow" id="outForm">
+        <label>Number (country code, digits only)
+          <input class="field" id="outNumber" placeholder="8801XXXXXXXXX" inputmode="numeric" style="min-width:210px">
+        </label>
+        <label>Name (optional)
+          <input class="field" id="outName" placeholder="Customer name" style="min-width:180px">
+        </label>
+        <label>Type
+          <select class="field" id="outType"><option value="voice">Voice</option><option value="video">Video</option></select>
+        </label>
+        <button class="btn" type="submit" id="outBtn">Open WhatsApp and start</button>
+      </form>
+      <div class="err" id="outErr"></div>
+    </div>
+    <div class="card sec">
+      <h2>Outbound calls</h2>
+      <p class="sub">Last 7 days.</p>
+      <div class="tableWrap" id="outTable"></div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="page" id="page-history">
+    <div class="card sec">
+      <div class="bar">
+        <label>Direction
+          <select class="field" id="hDir"><option value="">All</option><option value="in">Inbound</option><option value="out">Outbound</option></select>
+        </label>
+        <label>Status
+          <select class="field" id="hStatus">
+            <option value="">All</option><option value="ringing">Ringing</option><option value="taken">Taken</option>
+            <option value="completed">Completed</option><option value="in-progress">In progress</option>
+            <option value="missed">Missed</option><option value="rejected">Rejected</option>
+          </select>
+        </label>
+        <label>Agent
+          <select class="field" id="hAgent"><option value="">All agents</option></select>
+        </label>
+        <label>From <input class="field" type="date" id="hFrom"></label>
+        <label>To <input class="field" type="date" id="hTo"></label>
+        <label>Search <input class="field" id="hQ" placeholder="Name or number"></label>
+        <button class="btn" id="hGo">Search</button>
+        <button class="btn ghost" id="hCsv">Download CSV</button>
+      </div>
+      <p class="note" style="margin:0" id="hMsg"></p>
+    </div>
+    <div class="stats" id="hStats"></div>
+    <div class="card sec"><h2>By agent</h2><p class="sub">Calls handled and talk time for the filter above. Talk time is measured from when the agent took (or started) the call until they pressed Finish.</p><div class="tableWrap" id="hAgents"></div></div>
+    <div class="card sec"><h2>All calls</h2><p class="sub" id="hSub"></p><div class="tableWrap" id="hTable"></div></div>
+  </section>
+</div>
+
+<!-- Incoming call overlay -->
+<div id="ringWrap">
+  <div class="ringCard" role="alertdialog" aria-live="assertive" aria-labelledby="ringTitle">
+    <div class="ringIcon" id="ringIcon">C</div>
+    <h2 id="ringTitle">Incoming WhatsApp call</h2>
+    <div class="who" id="ringWho"></div>
+    <div class="meta" id="ringMeta"></div>
+    <div class="ringBtns">
+      <button class="btn" id="ringTake">Take this call</button>
+      <button class="btn danger" id="ringReject">Reject</button>
+      <button class="btn ghost" id="ringDismiss">Not me</button>
+    </div>
+    <p class="ringHint">Take it to claim the call so other agents stop ringing, then answer it in WhatsApp on the linked phone. "Not me" only hides this alert for you.</p>
+  </div>
+</div>
+
+<!-- Finish / note modal -->
+<div class="modalWrap" id="finishWrap">
+  <form class="modal" id="finishForm">
+    <h3 id="finTitle">Finish call</h3>
+    <label>Outcome <select class="field" id="finOutcome"></select></label>
+    <div class="row" id="finDurRow">
+      <label style="flex:1">Duration: minutes <input class="field" type="number" min="0" max="360" id="finMin"></label>
+      <label style="flex:1">seconds <input class="field" type="number" min="0" max="59" id="finSec"></label>
+    </div>
+    <label>Notes <textarea class="field" id="finNotes" rows="4" maxlength="1000" placeholder="What was the call about?"></textarea></label>
+    <div class="err" id="finErr"></div>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="finCancel">Cancel</button>
+      <button class="btn" type="submit" id="finSave">Save</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let TOKEN = '', ME = null, VER = '', ring = [], curPage = 'inbound', busy = false;
+  let soundOn = true, audioCtx = null, ringTimer = null, titleTimer = null;
+  let activeOut = null, activeTimer = null, finishCtx = null;
+  let inRows = [], histAgents = [];
+  const dismissed = {}, notified = {};
+  const BASE_TITLE = 'WhatsApp calls';
+  const $ = (id) => document.getElementById(id);
+
+  function run(fn, ...args) {
+    return new Promise((res, rej) => {
+      const r = google.script.run
+        .withSuccessHandler(res)
+        .withFailureHandler((e) => {
+          const m = (e && e.message) || String(e);
+          if (m.indexOf('SESSION_EXPIRED') >= 0) logout('Session expired. Please log in again.');
+          rej(new Error(m.replace(/^Error:\s*/, '')));
+        });
+      r[fn](...args);
+    });
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { t.style.display = 'none'; }, 4500);
+  }
+  function ymd(d) {
+    const m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  function last7() {
+    const t = new Date(), f = new Date();
+    f.setDate(t.getDate() - 6);
+    return { fromDate: ymd(f), toDate: ymd(t) };
+  }
+  function fmtDT(ms) { return ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'; }
+  function fmtDur(sec) {
+    if (sec == null) return '-';
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (h) return h + 'h ' + m + 'm';
+    if (m) return m + 'm ' + s + 's';
+    return s + 's';
+  }
+  function who(c) {
+    const num = c.number ? '+' + c.number : (c.isGroup ? 'Group call' : 'WhatsApp ID hidden');
+    return c.name ? c.name + ' (' + num + ')' : num;
+  }
+
+  /* ---------- Login / logout ---------- */
+  $('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    // Created inside the click so the browser allows the ring sound later
+    try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (x) { /* no audio */ }
+    try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (x) { /* ignore */ }
+    const btn = $('loginBtn');
+    btn.disabled = true; $('loginErr').textContent = '';
+    run('login', $('user').value, $('pw').value).then((r) => {
+      TOKEN = r.token; ME = r;
+      $('who').textContent = r.name;
+      $('pw').value = '';
+      $('loginScreen').style.display = 'none';
+      $('app').style.display = 'block';
+      VER = '';
+      $('hFrom').value = last7().fromDate; $('hTo').value = last7().toDate;
+      tick(true);
+      if (!tick.timer) tick.timer = setInterval(() => tick(false), 3000);
+    }).catch((err) => { $('loginErr').textContent = err.message; })
+      .then(() => { btn.disabled = false; });
+  });
+  function logout(msg) {
+    TOKEN = ''; ME = null; ring = [];
+    clearInterval(tick.timer); tick.timer = null;
+    updateAlert(false);
+    $('ringWrap').classList.remove('on');
+    $('finishWrap').classList.remove('on');
+    $('app').style.display = 'none';
+    $('loginScreen').style.display = 'flex';
+    $('loginErr').textContent = msg || '';
+  }
+  $('logout').addEventListener('click', () => logout('You have been logged out.'));
+  $('soundBtn').addEventListener('click', () => {
+    soundOn = !soundOn;
+    $('soundBtn').textContent = 'Sound: ' + (soundOn ? 'on' : 'off');
+    try { if (audioCtx) audioCtx.resume(); } catch (x) { /* ignore */ }
+  });
+
+  /* ---------- Menu ---------- */
+  document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => {
+    curPage = b.dataset.page;
+    document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.id === 'page-' + curPage));
+    loadPage();
+  }));
+
+  /* ---------- Polling ---------- */
+  function tick(force) {
+    if (busy || !TOKEN) return;
+    busy = true;
+    run('pulseCalls', TOKEN).then((p) => {
+      const pill = $('bridgePill');
+      const ready = p.status === 'ready';
+      pill.textContent = ready ? 'WhatsApp connected' : 'WhatsApp not connected (' + p.status + ')';
+      pill.className = 'pill ' + (ready ? 'ok' : 'bad');
+      const ended = handleRing(p.ring);
+      if (force || ended || p.ver !== VER) return loadPage().then(() => { VER = p.ver; });
+    }).catch(() => {}).then(() => { busy = false; });
+  }
+
+  /* ---------- Ringing ---------- */
+  function ringOnce() {
+    if (!soundOn || !audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime;
+      [660, 880].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        const s = t + i * 0.28;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(0.3, s + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + 0.24);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(s); o.stop(s + 0.26);
+      });
+    } catch (x) { /* ignore */ }
+  }
+  function updateAlert(on) {
+    if (on && !ringTimer) { ringOnce(); ringTimer = setInterval(ringOnce, 1500); }
+    if (!on && ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+    if (on && !titleTimer) {
+      let flip = false;
+      titleTimer = setInterval(() => { flip = !flip; document.title = flip ? '(!) Incoming call' : BASE_TITLE; }, 800);
+    }
+    if (!on && titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = BASE_TITLE; }
+  }
+  // Returns true when the last ringing call just ended (so the lists can refresh)
+  function handleRing(list) {
+    const had = ring.length > 0;
+    ring = list;
+    const vis = ring.filter((r) => !dismissed[r.id]);
+    vis.forEach((r) => {
+      if (notified[r.id]) return;
+      notified[r.id] = 1;
+      try {
+        if (window.Notification && Notification.permission === 'granted') {
+          new Notification('Incoming WhatsApp call', { body: r.name || (r.number ? '+' + r.number : 'Unknown caller') });
+        }
+      } catch (x) { /* ignore */ }
+    });
+    renderOverlay(vis);
+    updateAlert(vis.length > 0);
+    return had && ring.length === 0;
+  }
+  function renderOverlay(vis) {
+    const wrap = $('ringWrap');
+    if (!vis.length) { wrap.classList.remove('on'); return; }
+    const r = vis[0];
+    wrap.classList.add('on');
+    wrap.dataset.id = r.id;
+    $('ringIcon').textContent = (r.name || r.number || '?').trim().charAt(0).toUpperCase();
+    $('ringTitle').textContent = 'Incoming WhatsApp ' + (r.type === 'video' ? 'video ' : '') + 'call';
+    $('ringWho').textContent = r.name || (r.number ? '+' + r.number : (r.isGroup ? 'Group call' : 'Unknown caller'));
+    $('ringMeta').textContent = (r.name && r.number ? '+' + r.number + ' | ' : '') + 'ringing for ' + r.ageSec + 's' + (vis.length > 1 ? ' | ' + (vis.length - 1) + ' more ringing' : '');
+  }
+  $('ringTake').addEventListener('click', () => {
+    const id = $('ringWrap').dataset.id;
+    run('takeCall', TOKEN, id).then(() => {
+      dismissed[id] = true;
+      toast('You took the call. Answer it in WhatsApp now.');
+      tick(true);
+    }).catch((err) => { dismissed[id] = true; toast(err.message); tick(true); });
+  });
+  $('ringReject').addEventListener('click', () => {
+    const id = $('ringWrap').dataset.id;
+    if (!confirm('Reject this call? The caller will see it as declined.')) return;
+    run('rejectCall', TOKEN, id).then(() => { dismissed[id] = true; toast('Call rejected.'); tick(true); })
+      .catch((err) => { toast(err.message); tick(true); });
+  });
+  $('ringDismiss').addEventListener('click', () => {
+    dismissed[$('ringWrap').dataset.id] = true;
+    handleRing(ring);
+  });
+
+  /* ---------- Tables ---------- */
+  function pill(status) { return el('span', 'pill ' + status, status); }
+  function btn(label, cls, fn) {
+    const b = el('button', 'btn small ' + cls, label);
+    b.type = 'button';
+    b.addEventListener('click', fn);
+    return b;
+  }
+  function table(headers, rows) {
+    const t = document.createElement('table');
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    headers.forEach((h) => hr.appendChild(el('th', h[1] ? 'num' : '', h[0])));
+    thead.appendChild(hr); t.appendChild(thead);
+    const tb = document.createElement('tbody');
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      r.forEach((c, i) => {
+        const td = el('td', (headers[i][1] ? 'num ' : '') + (headers[i][2] || ''));
+        if (c && c.nodeType) td.appendChild(c); else td.textContent = c;
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    return t;
+  }
+  function fill(id, node, emptyText) {
+    const box = $(id);
+    box.innerHTML = '';
+    box.appendChild(node || el('div', 'empty', emptyText));
+  }
+  function actions(c) {
+    const box = el('div', 'acts');
+    const mine = ME && (c.agent === ME.username || ME.role === 'admin');
+    if (c.status === 'ringing') {
+      box.appendChild(btn('Take', '', () => run('takeCall', TOKEN, c.id).then(() => { toast('You took the call. Answer it in WhatsApp now.'); tick(true); }).catch((e) => { toast(e.message); tick(true); })));
+      box.appendChild(btn('Reject', 'danger', () => { if (confirm('Reject this call?')) run('rejectCall', TOKEN, c.id).then(() => tick(true)).catch((e) => toast(e.message)); }));
+    } else if ((c.status === 'taken' || c.status === 'in-progress') && mine) {
+      box.appendChild(btn('Finish', '', () => openFinish(c, 'finish')));
+    } else if (c.status !== 'ringing') {
+      box.appendChild(btn(c.notes || c.outcome ? 'Edit note' : 'Add note', 'ghost', () => openFinish(c, 'note')));
+    }
+    if (c.number && c.status !== 'ringing') {
+      box.appendChild(btn(c.dir === 'in' ? 'Call back' : 'Call again', 'ghost', () => prefillOutbound(c)));
+    }
+    return box;
+  }
+  function callHeaders(withDir) {
+    const h = [['Time'], ['Caller'], ['Type'], ['Status'], ['Handled by'], ['Duration', 1], ['Outcome'], ['Notes', 0, 'wrap'], ['']];
+    if (withDir) h.splice(1, 0, ['Direction']);
+    return h;
+  }
+  function callRows(list, withDir) {
+    return list.map((c) => {
+      const row = [fmtDT(c.startMs), who(c), c.type + (c.isGroup ? ' (group)' : ''), pill(c.status), c.agentName || '-', fmtDur(c.durSec), c.outcome || '-', c.notes || '', actions(c)];
+      if (withDir) row.splice(1, 0, c.dir === 'in' ? 'Inbound' : 'Outbound');
+      return row;
+    });
+  }
+
+  /* ---------- Pages ---------- */
+  function loadPage() {
+    if (!TOKEN) return Promise.resolve();
+    if (curPage === 'inbound') {
+      return run('getCalls', TOKEN, Object.assign({ direction: 'in' }, last7())).then((r) => { inRows = r.calls; renderInbound(r.summary); });
+    }
+    if (curPage === 'outbound') {
+      return run('getCalls', TOKEN, Object.assign({ direction: 'out' }, last7())).then(renderOutbound);
+    }
+    return searchHistory(true);
+  }
+
+  function statCard(label, value) {
+    const d = el('div', 'stat');
+    d.appendChild(el('b', '', value));
+    d.appendChild(el('span', '', label));
+    return d;
+  }
+
+  function renderInbound(s) {
+    const box = $('inStats');
+    box.innerHTML = '';
+    box.appendChild(statCard('Inbound calls (7 days)', s.inbound));
+    box.appendChild(statCard('Answered', s.answered));
+    box.appendChild(statCard('Missed', s.missed));
+    box.appendChild(statCard('Rejected', s.rejected));
+    box.appendChild(statCard('Talk time', fmtDur(s.talkSec)));
+    renderInboundTable();
+  }
+  function renderInboundTable() {
+    const f = $('inFilter').value;
+    const list = inRows.filter((c) => !f || c.status === f);
+    fill('inTable', list.length ? table(callHeaders(false), callRows(list, false)) : null, 'No inbound calls yet. A ringing call appears here and as a pop-up.');
+  }
+  $('inFilter').addEventListener('change', renderInboundTable);
+
+  function renderOutbound(r) {
+    const mineActive = r.calls.filter((c) => c.status === 'in-progress' && ME && c.agent === ME.username)[0] || null;
+    activeOut = mineActive;
+    const card = $('activeCard');
+    clearInterval(activeTimer); activeTimer = null;
+    if (mineActive) {
+      card.style.display = 'block';
+      card.className = 'card sec active';
+      card.innerHTML = '';
+      card.appendChild(el('h2', '', 'Call in progress'));
+      card.appendChild(el('div', 'big', who(mineActive)));
+      const tm = el('div', 'timer', '00:00');
+      tm.id = 'activeTimerText';
+      card.appendChild(tm);
+      const row = el('div', 'acts');
+      const a = el('a', 'btn ghost small', 'Open WhatsApp again');
+      a.href = 'https://wa.me/' + mineActive.number; a.target = '_blank'; a.rel = 'noopener';
+      a.style.textDecoration = 'none';
+      row.appendChild(a);
+      row.appendChild(btn('End call and save', '', () => openFinish(mineActive, 'finish')));
+      card.appendChild(row);
+      const upd = () => {
+        const s = Math.max(0, Math.round((Date.now() - (mineActive.takenMs || mineActive.startMs)) / 1000));
+        const m = Math.floor(s / 60), x = s % 60;
+        const t = $('activeTimerText');
+        if (t) t.textContent = (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x;
+      };
+      upd(); activeTimer = setInterval(upd, 1000);
+    } else {
+      card.style.display = 'none';
+    }
+    fill('outTable', r.calls.length ? table(callHeaders(false), callRows(r.calls, false)) : null, 'No outbound calls yet.');
+  }
+
+  function prefillOutbound(c) {
+    curPage = 'outbound';
+    document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x.dataset.page === 'outbound'));
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.id === 'page-outbound'));
+    $('outNumber').value = c.number; $('outName').value = c.name || '';
+    $('outType').value = c.type === 'video' ? 'video' : 'voice';
+    loadPage();
+    $('outNumber').focus();
+  }
+
+  $('outForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('outErr').textContent = '';
+    const digits = $('outNumber').value.replace(/\D/g, '');
+    if (digits.length < 8 || digits.length > 15) { $('outErr').textContent = 'Enter a valid number with country code, digits only.'; return; }
+    // Open WhatsApp straight from the click so the pop-up is not blocked
+    const w = window.open('https://wa.me/' + digits, '_blank');
+    const b = $('outBtn');
+    b.disabled = true;
+    run('startOutbound', TOKEN, digits, $('outName').value, $('outType').value).then(() => {
+      $('outNumber').value = ''; $('outName').value = '';
+      if (!w) toast('Pop-up blocked. Use "Open WhatsApp again" below.');
+      tick(true);
+    }).catch((err) => { $('outErr').textContent = err.message; if (w) w.close(); })
+      .then(() => { b.disabled = false; });
+  });
+
+  /* ---------- Finish / note ---------- */
+  const OUTCOMES = {
+    in: ['Resolved', 'Follow-up needed', 'Wrong number', 'Spam / unwanted', 'Other'],
+    out: ['Answered', 'No answer', 'Busy', 'Wrong number', 'Call back later', 'Other'],
+  };
+  function openFinish(c, mode) {
+    finishCtx = { id: c.id, mode: mode };
+    $('finTitle').textContent = (mode === 'finish' ? 'Finish call: ' : 'Call note: ') + who(c);
+    const sel = $('finOutcome');
+    sel.innerHTML = '';
+    sel.appendChild(new Option('Select an outcome', ''));
+    (OUTCOMES[c.dir] || OUTCOMES.in).forEach((o) => sel.appendChild(new Option(o, o)));
+    if (c.outcome && !Array.prototype.some.call(sel.options, (o) => o.value === c.outcome)) sel.appendChild(new Option(c.outcome, c.outcome));
+    sel.value = c.outcome || '';
+    $('finNotes').value = c.notes || '';
+    $('finDurRow').style.display = mode === 'finish' ? 'flex' : 'none';
+    if (mode === 'finish') {
+      const s = Math.max(0, Math.round((Date.now() - (c.takenMs || c.startMs)) / 1000));
+      $('finMin').value = Math.floor(s / 60); $('finSec').value = s % 60;
+    }
+    $('finErr').textContent = '';
+    $('finishWrap').classList.add('on');
+  }
+  $('finCancel').addEventListener('click', () => $('finishWrap').classList.remove('on'));
+  $('finishForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!finishCtx) return;
+    const dur = finishCtx.mode === 'finish' ? (Number($('finMin').value || 0) * 60 + Number($('finSec').value || 0)) : null;
+    const b = $('finSave');
+    b.disabled = true;
+    run('finishCall', TOKEN, finishCtx.id, $('finOutcome').value, $('finNotes').value, dur).then(() => {
+      $('finishWrap').classList.remove('on');
+      toast('Saved.');
+      tick(true);
+    }).catch((err) => { $('finErr').textContent = err.message; })
+      .then(() => { b.disabled = false; });
+  });
+
+  /* ---------- History ---------- */
+  function histFilter() {
+    return { direction: $('hDir').value, status: $('hStatus').value, agent: $('hAgent').value, fromDate: $('hFrom').value, toDate: $('hTo').value, q: $('hQ').value };
+  }
+  function searchHistory(quiet) {
+    if (!quiet) $('hMsg').textContent = 'Loading...';
+    return run('getCalls', TOKEN, histFilter()).then((r) => {
+      const s = r.summary;
+      $('hMsg').textContent = '';
+      const box = $('hStats');
+      box.innerHTML = '';
+      box.appendChild(statCard('Total calls', s.total));
+      box.appendChild(statCard('Inbound', s.inbound));
+      box.appendChild(statCard('Outbound', s.outbound));
+      box.appendChild(statCard('Inbound answered', s.answered));
+      box.appendChild(statCard('Missed', s.missed));
+      box.appendChild(statCard('Rejected', s.rejected));
+      box.appendChild(statCard('Talk time', fmtDur(s.talkSec)));
+
+      const keep = $('hAgent').value;
+      if (!keep) {
+        histAgents = s.agents;
+        const sel = $('hAgent');
+        sel.innerHTML = '';
+        sel.appendChild(new Option('All agents', ''));
+        s.agents.forEach((a) => sel.appendChild(new Option(a.name, a.username)));
+      }
+      fill('hAgents', s.agents.length ? table(
+        [['Agent'], ['Inbound handled', 1], ['Outbound calls', 1], ['Talk time', 1]],
+        s.agents.map((a) => [a.name, a.inbound, a.outbound, fmtDur(a.talkSec)])
+      ) : null, 'No agent activity for this filter.');
+      $('hSub').textContent = r.total > r.calls.length ? 'Showing the latest ' + r.calls.length + ' of ' + r.total + ' calls. The CSV has all of them.' : r.total + ' calls.';
+      fill('hTable', r.calls.length ? table(callHeaders(true), callRows(r.calls, true)) : null, 'No calls match this filter.');
+    }).catch((err) => { $('hMsg').textContent = 'Error: ' + err.message; });
+  }
+  $('hGo').addEventListener('click', () => searchHistory(false));
+  $('hCsv').addEventListener('click', () => {
+    $('hMsg').textContent = 'Preparing CSV...';
+    run('exportCallsCsv', TOKEN, histFilter()).then((r) => {
+      const blob = new Blob(['\uFEFF', r.csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'whatsapp_calls_' + ymd(new Date()) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      $('hMsg').textContent = 'Downloaded ' + r.rows + ' calls.';
+    }).catch((err) => { $('hMsg').textContent = 'Error: ' + err.message; });
+  });
+</script>
+</body>
+</html>
