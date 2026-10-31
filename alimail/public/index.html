@@ -77,6 +77,7 @@
   .dsub { font-size: 22px; margin: 0; font-weight: 600; }
   .dmeta { color: var(--muted); font-size: 13px; margin-top: -10px; }
   .msg { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: #fff; }
+  .msg.out { background: #fbfcff; }
   .mhead { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; margin-bottom: 10px; }
   .mhead span { font-weight: 400; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
   .mbody { white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; font-size: 14.5px; margin: 0; }
@@ -98,6 +99,19 @@
   .btn:disabled { opacity: .6; cursor: default; }
   .hint { color: var(--muted); font-size: 12.5px; }
 
+  /* Service tags (picker above the reply box) */
+  .tagWrap { display: flex; flex-direction: column; gap: 6px; }
+  .tagLabel { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .tagChips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; }
+  .tagChip { background: #fdecea; color: #b83225; border: 1px solid #f5c2bb; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .tagChip:hover { background: #fbd9d4; }
+  .tagHint { font-size: 12.5px; color: var(--muted); }
+  .tagInput { padding: 7px 12px; }
+  .tagList { max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+  .tagItem { padding: 8px 12px; cursor: pointer; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+  .tagItem:last-child { border-bottom: 0; }
+  .tagItem:hover { background: var(--chip); }
+
   /* Login */
   .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
   .loginCard { width: 100%; max-width: 380px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 28px; box-shadow: 0 10px 30px rgba(0,0,0,.06); }
@@ -110,6 +124,13 @@
   /* Toast */
   #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .25s; pointer-events: none; font-size: 14px; z-index: 99; }
   #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 1000px) {
+    .app { grid-template-columns: 200px 1fr; }
+    .list { grid-column: 1 / -1; }
+    .detail { grid-column: 1 / -1; }
+    .search { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -179,6 +200,8 @@ const TEMPLATES = [
 
 let token = sessionStorage.getItem('am_token') || '';
 let view = 'open', threads = [], counts = {}, cur = null, detail = null, composing = false, search = '', pollT = null;
+let lastDetailSig = '';
+let TAG_CATS = [];
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -251,6 +274,7 @@ function enter() {
   $('app').classList.remove('hide');
   $('meAvatar').textContent = initial(sessionStorage.getItem('am_user') || 'A');
   loadList().catch((e) => toast(e.message));
+  loadTagCats();
   clearInterval(pollT);
   pollT = setInterval(poll, 15000);
 }
@@ -269,7 +293,7 @@ $('logout').addEventListener('click', () => logout('You have been signed out.'))
 document.querySelectorAll('.fold').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
 function setView(v) {
-  view = v; cur = null; detail = null; composing = false;
+  view = v; cur = null; detail = null; composing = false; lastDetailSig = '';
   $('search').value = ''; search = '';
   renderDetail();
   loadList().catch((e) => toast(e.message));
@@ -295,7 +319,7 @@ function renderList() {
   const box = $('items');
   box.innerHTML = '';
   const q = search.toLowerCase();
-  // FIFO: oldest mail first, like the design
+  // FIFO: oldest mail first
   const rows = threads.slice().sort((a, b) => a.lastDate - b.lastDate).filter((t) => {
     if (!q) return true;
     return (t.contact.name + ' ' + t.contact.address + ' ' + t.subject).toLowerCase().includes(q);
@@ -330,22 +354,26 @@ $('refresh').addEventListener('click', refreshAll);
 $('refresh2').addEventListener('click', refreshAll);
 function refreshAll() {
   loadList().catch((e) => toast(e.message));
-  if (cur && !composing) loadDetail(cur, true);
+  if (cur && !composing) loadDetail(cur, false);
 }
 
 /* ---------- Reading a mail (thread) ---------- */
 function selectThread(id) {
-  cur = id; composing = false; detail = null;
+  cur = id; composing = false; detail = null; lastDetailSig = '';
   renderList(); renderSide();
   $('detail').innerHTML = '';
   $('detail').appendChild(el('div', 'empty big', 'Loading...'));
   loadDetail(id, false);
 }
 
+// Silent refresh skips the redraw when nothing changed, so text and tags typed by the agent are kept
 async function loadDetail(id, silent) {
   try {
     const d = await api('/api/threads/' + encodeURIComponent(id));
     if (cur !== id) return;
+    const sig = id + '|' + d.status + '|' + d.messages.map((m) => m.key + ':' + m.text.length).join(',');
+    if (silent && sig === lastDetailSig) return;
+    lastDetailSig = sig;
     detail = d;
     renderDetail();
     loadList().catch(() => {});
@@ -378,7 +406,7 @@ function renderDetail() {
   wrap.appendChild(el('div', 'dmeta', (detail.contact.address || '') + '  ·  ' + detail.messages.length + ' messages'));
 
   detail.messages.forEach((m) => {
-    const card = el('div', 'msg');
+    const card = el('div', 'msg' + (m.fromMe ? ' out' : ''));
     const head = el('div', 'mhead');
     const who = m.fromMe ? 'You' : (m.from.name || m.from.address || 'Unknown');
     head.appendChild(el('span', '', who));
@@ -400,6 +428,7 @@ async function toggleStatus() {
     await api('/api/threads/' + encodeURIComponent(cur) + '/status', { method: 'POST', body: JSON.stringify({ status: to }) });
     toast(to === 'closed' ? 'Marked as completed' : 'Moved back to inbox');
     detail.status = to;
+    lastDetailSig = '';
     renderDetail();
     loadList();
   } catch (e) { toast(e.message); }
@@ -428,6 +457,8 @@ function composer(o) {
   subj.value = o.subject || '';
   row.appendChild(tpl); row.appendChild(subj);
 
+  const picker = createTagPicker(() => TAG_CATS);
+
   const ta = el('textarea', 'field');
   ta.rows = 7;
   ta.placeholder = 'Write your reply. The Alimail layout is added automatically.';
@@ -451,18 +482,22 @@ function composer(o) {
     const to = o.reply ? o.to : toIn.value.trim();
     const body = ta.value.trim();
     if (!to || !body) { toast('Recipient and message are required'); return; }
+    const tags = picker.get();
+    if (!tags.length) { toast('Select at least one service tag'); return; }
     send.disabled = true; send.textContent = 'Sending...';
     try {
       if (o.reply) {
         await api('/api/threads/' + encodeURIComponent(cur) + '/reply', {
-          method: 'POST', body: JSON.stringify({ body, subject: subj.value }),
+          method: 'POST', body: JSON.stringify({ body, subject: subj.value, tags }),
         });
         toast('Mail sent');
         ta.value = '';
+        picker.reset();
+        lastDetailSig = '';
         await loadDetail(cur, false);
       } else {
         await api('/api/compose', {
-          method: 'POST', body: JSON.stringify({ to, subject: subj.value, body }),
+          method: 'POST', body: JSON.stringify({ to, subject: subj.value, body, tags }),
         });
         toast('Mail sent');
         composing = false; cur = null; detail = null;
@@ -482,15 +517,81 @@ function composer(o) {
 
   wrap.appendChild(head);
   wrap.appendChild(row);
+  wrap.appendChild(picker.node);
   wrap.appendChild(ta);
   wrap.appendChild(foot);
   return wrap;
 }
 
 $('composeBtn').addEventListener('click', () => {
-  composing = true; cur = null; detail = null;
+  composing = true; cur = null; detail = null; lastDetailSig = '';
   renderList(); renderSide(); renderDetail();
 });
+
+/* ---------- Service tags (required on every reply) ---------- */
+function loadTagCats() {
+  api('/api/tag-categories').then((j) => { TAG_CATS = j.categories || []; }).catch(() => {});
+}
+
+function createTagPicker(getCats) {
+  const picked = [];
+  const node = document.createElement('div');
+  node.className = 'tagWrap';
+  const label = document.createElement('div');
+  label.className = 'tagLabel';
+  label.textContent = 'Service tags (required): tick every service you gave in this reply';
+  const chips = document.createElement('div');
+  chips.className = 'tagChips';
+  const input = document.createElement('input');
+  input.className = 'field tagInput';
+  input.placeholder = 'Type to search a service, then click it';
+  input.autocomplete = 'off';
+  const list = document.createElement('div');
+  list.className = 'tagList';
+  list.style.display = 'none';
+  node.appendChild(label); node.appendChild(chips); node.appendChild(input); node.appendChild(list);
+
+  function draw() {
+    chips.innerHTML = '';
+    if (!picked.length) {
+      const h = document.createElement('span');
+      h.className = 'tagHint';
+      h.textContent = 'No service selected yet';
+      chips.appendChild(h);
+    }
+    picked.forEach((c, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'tagChip';
+      chip.title = 'Click to remove';
+      chip.textContent = c + '  ×';
+      chip.addEventListener('click', () => { picked.splice(i, 1); draw(); showList(); });
+      chips.appendChild(chip);
+    });
+  }
+  function showList() {
+    const q = input.value.trim().toLowerCase();
+    const items = getCats().filter((c) => picked.indexOf(c) < 0 && (!q || c.toLowerCase().indexOf(q) >= 0)).slice(0, 12);
+    list.innerHTML = '';
+    items.forEach((c) => {
+      const it = document.createElement('div');
+      it.className = 'tagItem';
+      it.textContent = c;
+      it.addEventListener('mousedown', (e) => { e.preventDefault(); picked.push(c); input.value = ''; draw(); showList(); });
+      list.appendChild(it);
+    });
+    list.style.display = items.length ? 'block' : 'none';
+  }
+  input.addEventListener('input', showList);
+  input.addEventListener('focus', showList);
+  input.addEventListener('blur', () => { list.style.display = 'none'; });
+  draw();
+  return {
+    node: node,
+    get: () => picked.slice(),
+    set: (arr) => { picked.length = 0; (arr || []).forEach((c) => picked.push(c)); draw(); },
+    reset: () => { picked.length = 0; input.value = ''; draw(); list.style.display = 'none'; },
+  };
+}
 
 /* ---------- Polling ---------- */
 function poll() {

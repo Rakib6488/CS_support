@@ -8,7 +8,6 @@
 <style>
   .screen { display: none; height: 100vh; }
   .screen.on { display: flex; }
-  #loginScreen.on { display: grid; height: auto; min-height: 100vh; }
   #qrScreen.on { align-items: center; justify-content: center; padding: 20px; background: var(--bg); }
   .qr-card { text-align: center; max-width: 420px; }
   #qrCanvas { display: none; background: #fff; padding: 12px; border-radius: 12px; width: 304px; margin: 0 auto 16px; border: 1px solid var(--line); }
@@ -16,11 +15,61 @@
   .qr-card ol { text-align: left; color: var(--muted); padding-left: 20px; line-height: 1.7; margin: 0 0 6px; display: none; }
   .qr-card .btn { margin-top: 10px; }
 
+  /* ---------- Shared login page ---------- */
+  #loginScreen.on { display: grid; grid-template-columns: 1.15fr .85fr; min-height: 100vh; height: auto; background: #f4f7fb; font-family: Inter, "Segoe UI", system-ui, sans-serif; color: #0b3a82; }
+  .lg-left { padding: 48px 56px; display: flex; flex-direction: column; justify-content: center; background: radial-gradient(circle at 0% 0%, rgba(31, 170, 89, .14), transparent 42%), radial-gradient(circle at 100% 100%, rgba(232, 62, 95, .10), transparent 45%), #f4f7fb; }
+  .lg-logos { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; }
+  .lg-brand { display: flex; align-items: center; gap: 10px; }
+  .lg-ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none; }
+  .lg-brand b { display: block; font-size: 19px; line-height: 1.1; }
+  .lg-brand span { font-size: 12.5px; color: #6b7a99; }
+  .lg-sep { width: 1px; height: 44px; background: #d7deea; }
+  .lg-left h1 { font-size: 44px; line-height: 1.15; margin: 0 0 16px; font-weight: 800; letter-spacing: -.02em; }
+  .lg-wa { color: #1faa59; }
+  .lg-mail { color: #e83e5f; }
+  .lg-left > p { font-size: 16px; color: #5b6b8c; line-height: 1.6; max-width: 470px; margin: 0 0 28px; }
+  .lg-feats { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+  .lg-feats li { display: flex; gap: 14px; align-items: center; }
+  .lg-feats i { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .lg-feats b { display: block; font-size: 15px; }
+  .lg-feats span { font-size: 13px; color: #6b7a99; }
+  .lg-tag { margin-top: 34px; font-style: italic; font-weight: 600; font-size: 18px; }
+  .lg-tag small { display: block; font-style: normal; font-size: 11px; letter-spacing: .2em; color: #6b7a99; text-transform: uppercase; margin-top: 4px; }
+
+  .lg-right { display: flex; align-items: center; justify-content: center; padding: 32px; background: #fff; border-left: 1px solid #e6ebf3; }
+  .lg-card { width: 100%; max-width: 420px; }
+  .lg-card h2 { font-size: 30px; margin: 0 0 6px; font-weight: 800; color: #0b3a82; }
+  .lg-card > p { color: #6b7a99; margin: 0 0 22px; font-size: 14.5px; }
+  .lg-tabs { border-bottom: 1px solid #e6ebf3; margin-bottom: 22px; }
+  .lg-tab { display: inline-block; color: #1faa59; font-weight: 700; font-size: 14.5px; padding: 0 2px 12px; border-bottom: 3px solid #1faa59; margin-bottom: -1px; }
+  .lg-label { display: block; font-weight: 600; font-size: 14px; color: #0b3a82; margin-bottom: 8px; }
+  .lg-input { position: relative; margin-bottom: 18px; }
+  .lg-input > svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8b97b0; pointer-events: none; }
+  .lg-input input { width: 100%; height: 50px; border: 1px solid #d7deea; border-radius: 10px; padding: 0 14px 0 44px; font-size: 15px; background: #fff; color: #0b3a82; outline: none; }
+  .lg-input input::placeholder { color: #9aa6bf; }
+  .lg-input input:focus { border-color: #e83e5f; box-shadow: 0 0 0 3px rgba(232, 62, 95, .12); }
+  .lg-input.has-eye input { padding-right: 80px; }
+  .lg-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: #1faa59; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .lg-row { display: flex; justify-content: flex-end; margin: -4px 0 18px; }
+  .lg-link { color: #1faa59; font-weight: 600; font-size: 14px; background: none; border: 0; cursor: pointer; padding: 0; }
+  .lg-btn { width: 100%; height: 52px; border: 0; border-radius: 10px; background: #e83e5f; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px rgba(232, 62, 95, .25); display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .lg-btn:hover { background: #d42f50; }
+  .lg-btn:disabled { opacity: .6; cursor: default; }
+  .lg-err { color: #e83e5f; font-size: 13.5px; min-height: 18px; margin-top: 12px; text-align: center; }
+  .lg-foot { text-align: center; color: #6b7a99; font-size: 13.5px; margin-top: 26px; }
+  @media (max-width: 900px) {
+    #loginScreen.on { grid-template-columns: 1fr; }
+    .lg-left { padding: 32px 24px; }
+    .lg-left h1 { font-size: 32px; }
+    .lg-right { border-left: 0; padding: 24px; }
+  }
+
   /* ---------- Inbox layout ---------- */
   #chatScreen { flex-direction: row; background: var(--panel); }
   .side { width: 360px; flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
-  .side-top { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
-  .brand-mini { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+  .side-top { display: flex; align-items: center; gap: 8px; padding: 14px 12px 10px; }
+  .side-top .iconBtn { white-space: nowrap; padding: 6px 10px; font-size: 12.5px; }
+  .brand-mini { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; letter-spacing: -.01em; white-space: nowrap; }
   .brand-logo { width: 32px; height: 32px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; flex: none; }
   .menuWrap { position: relative; }
   .menuBtn { border: 0; cursor: pointer; width: 34px; height: 34px; font-size: 14px; }
@@ -95,6 +144,20 @@
   .composer .btn { border-radius: 22px; padding: 9px 20px; }
   .composer .iconBtn { padding: 9px 14px; border-radius: 22px; }
 
+  /* Service tags (picker above the reply box) */
+  .tagBar { padding: 10px 14px 0; }
+  .tagWrap { display: flex; flex-direction: column; gap: 6px; }
+  .tagLabel { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .tagChips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; }
+  .tagChip { background: var(--brand-soft); color: var(--brand-dark); border: 1px solid #bfe3da; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .tagChip:hover { background: #d3efe9; }
+  .tagHint { font-size: 12.5px; color: var(--muted); }
+  .tagInput { padding: 7px 12px; }
+  .tagList { max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+  .tagItem { padding: 8px 12px; cursor: pointer; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+  .tagItem:last-child { border-bottom: 0; }
+  .tagItem:hover { background: var(--panel-2); }
+
   /* ---------- Customer panel ---------- */
   .info { width: 320px; flex: none; background: var(--panel); border-left: 1px solid var(--line); display: none; flex-direction: column; min-width: 0; }
   #chatScreen.info-on .info { display: flex; }
@@ -113,12 +176,6 @@
   .lightbox.on { display: flex; }
   .lightbox img { max-width: 95%; max-height: 95%; }
 
-  /* Alimail overlay inside the portal */
-  .mailWrap { position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column; z-index: 80; }
-  .mailWrap.on { display: flex; }
-  .mailBar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--brand-dark); color: #fff; font-weight: 600; }
-  .mailBar .iconBtn { color: #fff; background: transparent; border-color: rgba(255,255,255,.4); }
-  #mailFrame { flex: 1; width: 100%; border: 0; }
 
   @media (max-width: 1180px) {
     .info { position: fixed; right: 0; top: 0; bottom: 0; width: min(360px, 100%); z-index: 50; box-shadow: -10px 0 30px rgba(0, 0, 0, .2); }
@@ -131,62 +188,64 @@
     #back { display: inline-flex; }
     #msgs { padding: 14px 10px; }
   }
-
-  /* ---------- Login: WhatsApp (left) and Mail (right) colours ---------- */
-  #loginScreen .auth-panel {
-    background: linear-gradient(160deg, #ef4b3c 0%, #b83225 100%);
-  }
-  #loginScreen .auth-card {
-    border: 0;
-    box-shadow: 0 18px 40px rgba(60, 10, 5, .28);
-  }
-  #loginScreen .auth-card .btn {
-    background: #ef4b3c;
-  }
-  #loginScreen .auth-card .btn:hover {
-    background: #d93a2b;
-  }
-  #loginScreen .auth-card .field:focus {
-    border-color: #ef4b3c;
-    box-shadow: 0 0 0 3px rgba(239, 75, 60, .15);
-  }
-  #loginScreen .auth-card .pw-wrap button,
-  #loginScreen .auth-card .auth-foot {
-    color: #d93a2b;
-  }
 </style>
 </head>
 <body>
 
 <!-- Sign in -->
-<div class="screen auth on" id="loginScreen">
-  <div class="auth-brand">
-    <div class="auth-logo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
-    <h1>WhatsApp &amp; Mail Box</h1>
-    <p>One shared workspace for your team to answer customers on WhatsApp and by email.</p>
-    <ul class="auth-points">
-      <li><i>1</i>WhatsApp chats and Gmail conversations in one place</li>
-      <li><i>2</i>Chats are assigned to you automatically</li>
-      <li><i>3</i>Quick replies, media and group chats</li>
-      <li><i>4</i>Every conversation is recorded for reports</li>
-    </ul>
-  </div>
-  <div class="auth-panel">
-    <form class="auth-card" id="loginForm">
-      <h2>Welcome back</h2>
-      <p>Sign in with your agent account.</p>
-      <label class="lbl">Username
-        <input id="user" class="field" type="text" autocomplete="username" autocapitalize="none" autofocus>
-      </label>
-      <label class="lbl">Password
-        <div class="pw-wrap">
-          <input id="pw" class="field" type="password" autocomplete="current-password">
-          <button type="button" id="pwToggle">Show</button>
+<div class="screen on" id="loginScreen">
+  <div class="lg-left">
+    <div class="lg-logos">
+      <div class="lg-brand">
+        <div class="lg-ico" style="background:#e8f8ef">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1faa59" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg>
         </div>
-      </label>
-      <button class="btn block" id="loginBtn" type="submit">Sign in</button>
-      <div class="err" id="loginErr"></div>
-      <div class="auth-foot">Need an account? Ask your administrator.</div>
+        <div><b class="lg-wa">WhatsApp</b><span>Business Messaging</span></div>
+      </div>
+    </div>
+
+    <h1>Manage Your<br><span class="lg-wa">WhatsApp</span><br>Support</h1>
+    <p>Receive and manage your customer conversations from one support portal.</p>
+
+    <ul class="lg-feats">
+      <li><i style="background:#1faa59"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg></i>
+        <div><b>WhatsApp Integration</b><span>Chat, broadcast and manage conversations</span></div></li>
+      <li><i style="background:#7c5cdb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i>
+        <div><b>Secure &amp; Reliable</b><span>Your data, our priority</span></div></li>
+      <li><i style="background:#2d7ff9"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></i>
+        <div><b>One Platform</b><span>Simplify your communication</span></div></li>
+    </ul>
+
+    <div class="lg-tag">Better Communication<small>with WhatsApp</small></div>
+  </div>
+
+  <div class="lg-right">
+    <form class="lg-card" id="loginForm">
+      <h2>Welcome back</h2>
+      <p>Sign in with your WhatsApp support account</p>
+      <div class="lg-tabs"><span class="lg-tab">Account Login</span></div>
+
+      <label class="lg-label" for="user">Username</label>
+      <div class="lg-input">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <input id="user" type="text" placeholder="Enter your agent account" autocomplete="username" autocapitalize="none" autofocus>
+      </div>
+
+      <label class="lg-label" for="pw">Password</label>
+      <div class="lg-input has-eye">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        <input id="pw" type="password" placeholder="Enter your password" autocomplete="current-password">
+        <button type="button" class="lg-eye" id="pwToggle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Show</span>
+        </button>
+      </div>
+
+      <div class="lg-row"><button type="button" class="lg-link" id="forgotBtn">Forgot Password?</button></div>
+
+      <button class="lg-btn" id="loginBtn" type="submit">Sign In <span>&rarr;</span></button>
+      <div class="lg-err" id="loginErr"></div>
+      <div class="lg-foot">Need an account? Ask your administrator.</div>
     </form>
   </div>
 </div>
@@ -213,19 +272,16 @@
     <div class="side-top">
       <div class="brand-mini">
         <div class="brand-logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
-        WhatsApp &amp; Mail Box
+        WhatsApp Support
       </div>
       <span class="spacer"></span>
       <button class="iconBtn" id="newChat">New chat</button>
-      <button class="iconBtn" id="mailBtn">Mail</button>
       <div class="menuWrap">
         <button class="avatar menuBtn" id="menuBtn" aria-label="Account menu"><span id="meInitial"></span></button>
         <div class="menu" id="menuPop">
           <div class="menu-head"><b id="meName"></b><span class="sub" id="meRole"></span></div>
           <hr>
           <button id="statsBtn">My statistics</button>
-          <button id="menuCalls">Call portal</button>
-          <button id="menuMail">Alimail</button>
           <button id="menuAdmin" class="hide">Admin portal</button>
           <hr>
           <button id="logout" class="danger">Log out</button>
@@ -263,6 +319,7 @@
       <div id="qrPop"></div>
       <div class="bar" id="replyBar"><div class="barText" id="replyText"></div><button id="replyX" aria-label="Cancel reply">&times;</button></div>
       <div class="bar" id="attachBar"><div class="barText" id="attachText"></div><button id="attachX" aria-label="Remove file">&times;</button></div>
+      <div class="tagBar" id="tagBar"></div>
       <div class="composer">
         <input type="file" id="file" hidden>
         <button class="iconBtn" id="attachBtn" title="Send a file or photo">Attach</button>
@@ -295,16 +352,6 @@
     </div>
     <div id="statsBody">Loading...</div>
   </div>
-</div>
-
-<!-- Alimail overlay (inside the portal) -->
-<div id="mailWrap" class="mailWrap">
-  <div class="mailBar">
-    <span>Alimail</span>
-    <span class="spacer"></span>
-    <button class="iconBtn" id="mailClose">Back to WhatsApp</button>
-  </div>
-  <iframe id="mailFrame" title="Alimail"></iframe>
 </div>
 
 <div class="lightbox" id="lightbox"><img id="lightImg" alt=""></div>
@@ -348,16 +395,18 @@
     $('statsModal').classList.remove('on');
     $('menuPop').classList.remove('on');
     $('chatScreen').classList.remove('info-on');
-    closeMail();
     show('loginScreen');
     $('loginErr').textContent = msg || 'Session expired. Please log in again.';
   }
 
   /* ---------- Login ---------- */
   $('pwToggle').addEventListener('click', () => {
-    const f = $('pw'), show = f.type === 'password';
-    f.type = show ? 'text' : 'password';
-    $('pwToggle').textContent = show ? 'Hide' : 'Show';
+    const f = $('pw'), showPw = f.type === 'password';
+    f.type = showPw ? 'text' : 'password';
+    $('pwToggle').querySelector('span').textContent = showPw ? 'Hide' : 'Show';
+  });
+  $('forgotBtn').addEventListener('click', () => {
+    $('loginErr').textContent = 'Please ask your administrator to reset your password.';
   });
   $('loginForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -365,6 +414,13 @@
     btn.disabled = true; $('loginErr').textContent = '';
     run('login', $('user').value, $('pw').value).then((r) => {
       if (r.role === 'caller') throw new Error('This account can only use the call portal.');
+      if (r.role === 'admin') {
+        $('pw').value = '';
+        return run('getAppLinks', r.token).then((links) => {
+          const url = links.admin + '&token=' + encodeURIComponent(r.token);
+          window.location.href = url;
+        });
+      }
       TOKEN = r.token; ME = r;
       $('meName').textContent = r.name;
       $('meInitial').textContent = (r.name || '?').trim().charAt(0);
@@ -605,6 +661,7 @@
   function loadHelpers() {
     run('getAssignableAgents', TOKEN).then((l) => { agentsList = l; updateHeader(); }).catch(() => {});
     loadQuick().catch(() => {});
+    run('getTagCategories', TOKEN).then((l) => { TAG_CATS = l; }).catch(() => {});
   }
   setInterval(() => {
     if (TOKEN && ME && ME.role === 'admin' && !document.hidden) {
@@ -735,6 +792,7 @@
     limit = 100; lastSig = '';
     lastList = []; lastHasMore = false;
     clearReply(); clearAttach();
+    tagPicker.reset();
     $('mainTitle').textContent = current.name;
     $('mainSub').textContent = current.isGroup ? 'Group chat' : (/@c\.us$/.test(current.chatId) ? '+' + current.chatId.split('@')[0] : 'WhatsApp contact');
     const av = $('headAvatar');
@@ -988,8 +1046,11 @@
     const ta = $('text');
     const text = ta.value.trim();
     if (!text && !attach) return;
+    const tags = tagPicker.get();
+    if (!tags.length) { alert('Select at least one service tag before sending.'); return; }
     const chatId = current.chatId;
     const quotedId = replyTo ? replyTo.id : '';
+    tagPicker.reset();
 
     if (!attach) {
       // Text: show the message at once and send it in the background
@@ -998,13 +1059,14 @@
       ta.value = ''; ta.style.height = 'auto';
       qrHide(); clearReply();
       renderMessages(lastList, lastHasMore, 'bottom');
-      run('sendMessage', TOKEN, chatId, text, quotedId).then(() => {
+      run('sendMessage', TOKEN, chatId, text, quotedId, tags).then(() => {
         if (current && current.chatId === chatId) loadMessages('bottom', true).catch(() => {});
         setTimeout(() => tick(true), 800);
       }, (err) => {
         pending = pending.filter((x) => x !== item);
         if (current && current.chatId === chatId) renderMessages(lastList, lastHasMore, 'bottom');
         if (!ta.value) ta.value = text;
+        tagPicker.set(tags);
         alert('Send failed: ' + err.message);
       });
       return;
@@ -1013,12 +1075,12 @@
     // File (with optional caption): wait for the upload to finish
     const btn = $('sendBtn');
     btn.disabled = true;
-    run('sendMedia', TOKEN, chatId, { mimetype: attach.mime, filename: attach.name, data: attach.data }, text, quotedId).then(() => {
+    run('sendMedia', TOKEN, chatId, { mimetype: attach.mime, filename: attach.name, data: attach.data }, text, quotedId, tags).then(() => {
       ta.value = ''; ta.style.height = 'auto';
       clearAttach(); clearReply();
       setTimeout(() => tick(true), 1500);
       setTimeout(() => tick(true), 4000);
-    }).catch((err) => alert('Send failed: ' + err.message))
+    }).catch((err) => { tagPicker.set(tags); alert('Send failed: ' + err.message); })
       .then(() => { btn.disabled = false; ta.focus(); });
   }
   $('sendBtn').addEventListener('click', send);
@@ -1060,24 +1122,7 @@
       if (w) w.location.href = l[which]; else alert('Link: ' + l[which]);
     }).catch((err) => { if (w) w.close(); alert(err.message); });
   }
-  $('menuCalls').addEventListener('click', () => openApp('calls'));
   $('menuAdmin').addEventListener('click', () => openApp('admin'));
-  $('menuMail').addEventListener('click', () => { $('menuPop').classList.remove('on'); openMail(); });
-
-  /* ---------- Alimail inside the portal ---------- */
-  let mailLoaded = false;
-  function openMail() {
-    $('mailWrap').classList.add('on');
-    if (mailLoaded) return;
-    run('getAppLinks', TOKEN).then((l) => {
-      if (!l.mail) throw new Error('ALIMAIL_URL is not set in Script properties.');
-      $('mailFrame').src = l.mail;
-      mailLoaded = true;
-    }).catch((err) => { alert(err.message); closeMail(); });
-  }
-  function closeMail() { $('mailWrap').classList.remove('on'); }
-  $('mailBtn').addEventListener('click', openMail);
-  $('mailClose').addEventListener('click', closeMail);
 
   /* ---------- Stats ---------- */
   function th(t, num) { return el('th', num ? 'num' : '', t); }
@@ -1150,6 +1195,72 @@
   $('statsBtn').addEventListener('click', () => { $('menuPop').classList.remove('on'); $('statsModal').classList.add('on'); loadStats(); });
   $('statsClose').addEventListener('click', () => $('statsModal').classList.remove('on'));
   $('range').addEventListener('change', loadStats);
+
+  /* ---------- Service tags (required on every reply) ---------- */
+  let TAG_CATS = [];
+
+  function createTagPicker(getCats) {
+    const picked = [];
+    const node = document.createElement('div');
+    node.className = 'tagWrap';
+    const label = document.createElement('div');
+    label.className = 'tagLabel';
+    label.textContent = 'Service tags (required): tick every service you gave in this reply';
+    const chips = document.createElement('div');
+    chips.className = 'tagChips';
+    const input = document.createElement('input');
+    input.className = 'field tagInput';
+    input.placeholder = 'Type to search a service, then click it';
+    input.autocomplete = 'off';
+    const list = document.createElement('div');
+    list.className = 'tagList';
+    list.style.display = 'none';
+    node.appendChild(label); node.appendChild(chips); node.appendChild(input); node.appendChild(list);
+
+    function draw() {
+      chips.innerHTML = '';
+      if (!picked.length) {
+        const h = document.createElement('span');
+        h.className = 'tagHint';
+        h.textContent = 'No service selected yet';
+        chips.appendChild(h);
+      }
+      picked.forEach((c, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'tagChip';
+        chip.title = 'Click to remove';
+        chip.textContent = c + '  ×';
+        chip.addEventListener('click', () => { picked.splice(i, 1); draw(); showList(); });
+        chips.appendChild(chip);
+      });
+    }
+    function showList() {
+      const q = input.value.trim().toLowerCase();
+      const items = getCats().filter((c) => picked.indexOf(c) < 0 && (!q || c.toLowerCase().indexOf(q) >= 0)).slice(0, 12);
+      list.innerHTML = '';
+      items.forEach((c) => {
+        const it = document.createElement('div');
+        it.className = 'tagItem';
+        it.textContent = c;
+        it.addEventListener('mousedown', (e) => { e.preventDefault(); picked.push(c); input.value = ''; draw(); showList(); });
+        list.appendChild(it);
+      });
+      list.style.display = items.length ? 'block' : 'none';
+    }
+    input.addEventListener('input', showList);
+    input.addEventListener('focus', showList);
+    input.addEventListener('blur', () => { list.style.display = 'none'; });
+    draw();
+    return {
+      node: node,
+      get: () => picked.slice(),
+      set: (arr) => { picked.length = 0; (arr || []).forEach((c) => picked.push(c)); draw(); },
+      reset: () => { picked.length = 0; input.value = ''; draw(); list.style.display = 'none'; },
+    };
+  }
+
+  const tagPicker = createTagPicker(() => TAG_CATS);
+  $('tagBar').appendChild(tagPicker.node);
 </script>
 </body>
 </html>

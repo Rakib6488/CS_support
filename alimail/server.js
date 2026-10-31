@@ -95,6 +95,7 @@ const agentOfMsg = new Map();   // messageId -> { agent, agentName, preview } fo
 const pushedMsgs = new Set();   // messageIds already saved to the Google Sheet
 const pushedThreads = new Map(); // threadId -> signature last saved to the Google Sheet
 let listCache = { at: 0, data: null };
+let tagCatCache = null;          // service categories, loaded once from Apps Script
 function invalidateList() { listCache.at = 0; }
 
 function escapeHtml(s) {
@@ -107,18 +108,37 @@ function layoutHtml(text) {
     '<div style="margin-top:28px;font-size:12px;color:#7b8190">This message was sent from our support desk.</div></div>';
 }
 
-/* ---------- Google Sheet sync ---------- */
+function uniqueTags(tags) {
+  return [...new Set(tags.map((t) => String(t)))];
+}
+
+/* ---------- Google Sheet calls (mail sync and service tags) ---------- */
+// Sends a request to the Apps Script web app with the MAIL_KEY
+async function gasCall(payload) {
+  if (!GAS_URL || !MAIL_KEY) throw new Error('GAS_URL and MAIL_KEY must be set in .env');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ key: MAIL_KEY }, payload)),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!j.ok) throw new Error(j.error || 'Apps Script did not accept the request');
+  return j;
+}
+
+// Saves the service tags of a mail in the MailTags sheet
+async function saveMailTags(tags, contact, messageId, agent) {
+  return gasCall({
+    type: 'mail_tag', contact: contact || '', messageId: messageId || '',
+    agent: agent || '', agentName: AGENT_NAME, tags,
+  });
+}
+
 // Sends new mail and changed chats to the Apps Script web app. Runs in the background; a failure never stops Alimail.
 async function pushMail(messages, threads) {
   if (!GAS_URL || !MAIL_KEY || (!messages.length && !threads.length)) return;
   try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'mail_sync', key: MAIL_KEY, messages, threads }),
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!j.ok) throw new Error(j.error || 'unexpected response from Apps Script');
+    await gasCall({ type: 'mail_sync', messages, threads });
     messages.forEach((m) => pushedMsgs.add(m.messageId));
     threads.forEach((t) => pushedThreads.set(t.threadId, t.sig));
   } catch (e) {
@@ -364,11 +384,22 @@ app.get('/api/threads/:tid', auth, wrap(async (req, res) => {
   });
 }));
 
-// Reply inside a chat. The mail is threaded to the customer's last message.
+// Service categories, loaded from the Apps Script (same list as the WhatsApp inbox)
+app.get('/api/tag-categories', auth, wrap(async (req, res) => {
+  if (!tagCatCache) {
+    const j = await gasCall({ type: 'mail_categories' });
+    tagCatCache = j.categories || [];
+  }
+  res.json({ categories: tagCatCache });
+}));
+
+// Reply inside a chat. The mail is threaded to the customer's last message. Service tags are required.
 app.post('/api/threads/:tid/reply', auth, wrap(async (req, res) => {
   const body = req.body || {};
   const text = String(body.body || '').trim();
   if (!text) return res.status(400).json({ error: 'Message is empty' });
+  if (!Array.isArray(body.tags) || !body.tags.length) return res.status(400).json({ error: 'Select at least one service tag' });
+  const tags = uniqueTags(body.tags);
 
   const msgs = await fetchThread(req.params.tid);
   if (!msgs.length) return res.status(404).json({ error: 'Chat not found' });
@@ -392,6 +423,7 @@ app.post('/api/threads/:tid/reply', auth, wrap(async (req, res) => {
   if (info && info.messageId) {
     agentOfMsg.set(info.messageId, { agent: req.user || '', agentName: AGENT_NAME, preview: text.slice(0, 300) });
   }
+  await saveMailTags(tags, to, info && info.messageId, req.user);
 
   // Our reply closes the chat, the same way a WhatsApp reply does
   const st = loadState();
@@ -411,19 +443,23 @@ app.post('/api/threads/:tid/status', auth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// New mail to a customer (starts a new chat)
+// New mail to a customer (starts a new chat). Service tags are required.
 app.post('/api/compose', auth, wrap(async (req, res) => {
-  const { to, subject, body } = req.body || {};
-  if (!to || !body) return res.status(400).json({ error: 'Recipient and message are required' });
+  const body = req.body || {};
+  if (!body.to || !body.body) return res.status(400).json({ error: 'Recipient and message are required' });
+  if (!Array.isArray(body.tags) || !body.tags.length) return res.status(400).json({ error: 'Select at least one service tag' });
+  const tags = uniqueTags(body.tags);
+
   const info = await sendMail({
-    to,
-    subject: String(subject || '').trim() || '(no subject)',
-    text: body + '\n\n-- Alimail Support',
-    html: layoutHtml(body),
+    to: body.to,
+    subject: String(body.subject || '').trim() || '(no subject)',
+    text: body.body + '\n\n-- Alimail Support',
+    html: layoutHtml(body.body),
   });
   if (info && info.messageId) {
-    agentOfMsg.set(info.messageId, { agent: req.user || '', agentName: AGENT_NAME, preview: String(body).slice(0, 300) });
+    agentOfMsg.set(info.messageId, { agent: req.user || '', agentName: AGENT_NAME, preview: String(body.body).slice(0, 300) });
   }
+  await saveMailTags(tags, body.to, info && info.messageId, req.user);
   invalidateList();
   res.json({ ok: true });
 }));

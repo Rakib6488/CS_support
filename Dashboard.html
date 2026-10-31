@@ -102,43 +102,12 @@
 </head>
 <body>
 
-<!-- Sign in -->
-<div class="screen auth on" id="loginScreen">
-  <div class="auth-brand">
-    <div class="auth-logo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg></div>
-    <h1>Admin Portal</h1>
-    <p>Manage your team, watch every conversation and call, and see how fast customers get answers.</p>
-    <ul class="auth-points">
-      <li><i>1</i>Create agents and control what each role can see</li>
-      <li><i>2</i>Live reports connected to chats, agents and calls</li>
-      <li><i>3</i>Export any report as CSV</li>
-    </ul>
-  </div>
-  <div class="auth-panel">
-    <form class="auth-card" id="loginForm">
-      <h2>Administrator sign in</h2>
-      <p>Only administrators can open this portal.</p>
-      <label class="lbl">Username
-        <input id="user" class="field" type="text" autocomplete="username" autocapitalize="none" autofocus>
-      </label>
-      <label class="lbl">Password
-        <div class="pw-wrap">
-          <input id="pw" class="field" type="password" autocomplete="current-password">
-          <button type="button" id="pwToggle">Show</button>
-        </div>
-      </label>
-      <button class="btn block" id="loginBtn" type="submit">Sign in</button>
-      <div class="err" id="loginErr"></div>
-    </form>
-  </div>
-</div>
-
 <!-- App -->
 <div class="shell hide" id="app">
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
       <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5l2.2 2.2 4.3-4.3"/></svg></div>
-      <div><b>Admin Portal</b><span>WhatsApp workspace</span></div>
+      <div><b>Admin Portal</b><span>WhatsApp Support</span></div>
     </div>
     <nav id="nav"></nav>
     <div class="side-foot">
@@ -242,6 +211,7 @@
   /* ==========================================================================
      State
      ========================================================================== */
+  const URL_TOKEN = <?= JSON.stringify(token) ?>;
   let TOKEN = '', DATA = null, dataPromise = null, TEAM = null;
   let view = { id: 'overview', arg: '' }, renderSeq = 0, editing = null;
   const charts = {};
@@ -308,6 +278,7 @@
     link: ['M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1', 'M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1'],
     download: ['M12 3v12', 'M7 10l5 5 5-5', 'M4 21h16'],
     book: ['M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z', 'M8 7h7'],
+    tag: ['M3 12V4h8l10 10-8 8z', 'M7.5 8.5h.01'],
   };
   function icon(name) {
     const NS = 'http://www.w3.org/2000/svg';
@@ -327,43 +298,33 @@
   }
 
   /* ==========================================================================
-     Sign in / out
+     Single-page authentication and sign out
      ========================================================================== */
-  $('pwToggle').addEventListener('click', () => {
-    const f = $('pw'), show = f.type === 'password';
-    f.type = show ? 'text' : 'password';
-    $('pwToggle').textContent = show ? 'Hide' : 'Show';
-  });
-  $('loginForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const btn = $('loginBtn');
-    btn.disabled = true; $('loginErr').textContent = '';
-    run('login', $('user').value, $('pw').value).then((r) => {
-      if (r.role !== 'admin') throw new Error('Only administrators can open the admin portal.');
-      TOKEN = r.token;
-      $('meName').textContent = r.name;
-      $('meInitial').textContent = (r.name || '?').trim().charAt(0);
-      $('pw').value = '';
-      $('loginScreen').classList.remove('on');
-      $('app').classList.remove('hide');
-      buildNav();
-      go('overview');
-      ensureData().catch(() => {});
-      refreshBridge();
-      if (!refreshBridge.timer) refreshBridge.timer = setInterval(refreshBridge, 60000);
-    }).catch((err) => { $('loginErr').textContent = err.message; })
-      .then(() => { btn.disabled = false; });
-  });
   function logout(msg) {
     TOKEN = ''; DATA = null; dataPromise = null; TEAM = null;
     clearInterval(refreshBridge.timer); refreshBridge.timer = null;
     destroyCharts();
     $('app').classList.add('hide');
     $('agentModal').classList.remove('on');
-    $('loginScreen').classList.add('on');
-    $('loginErr').textContent = msg || '';
+    window.location.href = window.location.href.split('?')[0];
   }
   $('logout').addEventListener('click', () => logout('You have been signed out.'));
+
+  if (!URL_TOKEN) {
+    window.location.href = window.location.href.split('?')[0];
+  } else {
+    TOKEN = URL_TOKEN;
+    run('getSettings', TOKEN).then(() => {
+      $('meName').textContent = 'Administrator';
+      $('meInitial').textContent = 'A';
+      $('app').classList.remove('hide');
+      buildNav();
+      go('overview');
+      ensureData().catch(() => {});
+      refreshBridge();
+      if (!refreshBridge.timer) refreshBridge.timer = setInterval(refreshBridge, 60000);
+    }).catch(() => logout());
+  }
 
   function refreshBridge() {
     if (!TOKEN) return;
@@ -381,7 +342,7 @@
   const NAV = [
     { group: 'Overview', items: [{ id: 'overview', label: 'Dashboard', icon: 'home' }] },
     { group: 'People', items: [{ id: 'team', label: 'Team', icon: 'users' }, { id: 'agents', label: 'Agent performance', icon: 'chart' }] },
-    { group: 'Conversations', items: [{ id: 'chats', label: 'Chats', icon: 'chat' }, { id: 'pending', label: 'Pending', icon: 'alert', badge: true }, { id: 'days', label: 'Date and time', icon: 'calendar' }, { id: 'mail', label: 'Mail', icon: 'chat' }] },
+    { group: 'Conversations', items: [{ id: 'chats', label: 'Chats', icon: 'chat' }, { id: 'pending', label: 'Pending', icon: 'alert', badge: true }, { id: 'days', label: 'Date and time', icon: 'calendar' }, { id: 'tags', label: 'Service tags', icon: 'tag' }] },
     { group: 'Calls', items: [{ id: 'calls', label: 'Calls', icon: 'phone' }] },
     { group: 'Manage', items: [{ id: 'quick', label: 'Quick replies', icon: 'bolt' }, { id: 'settings', label: 'Settings', icon: 'sliders' }, { id: 'links', label: 'Portal links', icon: 'link' }] },
     { group: 'Data', items: [{ id: 'export', label: 'Export CSV', icon: 'download' }, { id: 'guide', label: 'Guide', icon: 'book' }] },
@@ -396,7 +357,7 @@
     chat: { title: 'Chat', nav: 'chats', parent: 'chats' },
     pending: { title: 'Pending chats', filters: true, nav: 'pending' },
     days: { title: 'Date and time', filters: true, nav: 'days' },
-    mail: { title: 'Mail', filters: true, nav: 'mail' },
+    tags: { title: 'Service tags', filters: true, nav: 'tags' },
     calls: { title: 'Calls', nav: 'calls' },
     quick: { title: 'Quick replies', nav: 'quick' },
     settings: { title: 'Settings', nav: 'settings' },
@@ -406,7 +367,7 @@
   };
 
   // page functions are declared below (function declarations are available from the start)
-  const PAGES = { overview: pageOverview, team: pageTeam, agents: pageAgents, agent: pageAgent, chats: pageChats, chat: pageChat, pending: pagePending, days: pageDays, mail: pageMail, calls: pageCalls, quick: pageQuick, settings: pageSettings, links: pageLinks, export: pageExport, guide: pageGuide };
+  const PAGES = { overview: pageOverview, team: pageTeam, agents: pageAgents, agent: pageAgent, chats: pageChats, chat: pageChat, pending: pagePending, days: pageDays, tags: pageTags, calls: pageCalls, quick: pageQuick, settings: pageSettings, links: pageLinks, export: pageExport, guide: pageGuide };
 
   function buildNav() {
     const nav = $('nav');
@@ -1102,6 +1063,68 @@
     }).catch((err) => { if (alive()) failed(body, err); });
   }
 
+  /* ---------- Service tags (WhatsApp + Mail) ---------- */
+  function pageTags(v, arg, alive) {
+    head(v, 'Service tags', 'Which services agents gave in each reply. WhatsApp tags are saved in WpTags, Mail tags in MailTags.',
+      [button('Download CSV', 'btn ghost', () => exportTags())]);
+    const bar = el('div', 'toolbar');
+    const l = el('label', 'lbl', 'Channel');
+    const sel = el('select', 'field');
+    [['all', 'WhatsApp and Mail'], ['WhatsApp', 'WhatsApp only'], ['Mail', 'Mail only']].forEach((o) => sel.appendChild(new Option(o[1], o[0])));
+    l.appendChild(sel); bar.appendChild(l);
+    v.appendChild(bar);
+    const body = el('div'); body.appendChild(loading()); v.appendChild(body);
+
+    const filt = () => Object.assign({}, getFilter(), { channel: sel.value });
+
+    function load() {
+      body.innerHTML = ''; body.appendChild(loading());
+      run('getTagDashboard', TOKEN, filt()).then((d) => {
+        if (!alive()) return;
+        body.innerHTML = '';
+        const k = el('div', 'kpis');
+        k.appendChild(kpi('Tagged replies', d.messages, 'Each reply counted once'));
+        k.appendChild(kpi('Service tags used', d.total, 'One reply can carry several tags'));
+        k.appendChild(kpi('WhatsApp tags', d.channels.WhatsApp || 0, 'From the WpTags sheet'));
+        k.appendChild(kpi('Mail tags', d.channels.Mail || 0, 'From the MailTags sheet'));
+        k.appendChild(kpi('Services used', d.categories.length, 'Different services'));
+        body.appendChild(k);
+
+        const row = el('div', 'grid-main');
+        const tc = cardOf('Services given', 'Most used first.');
+        tc.appendChild(d.categories.length
+          ? table([['Service'], ['Count', 1], ['Share', 1]],
+              d.categories.map((c) => [c.name, c.count, d.total ? Math.round(c.count * 1000 / d.total) / 10 + '%' : '-']))
+          : emptyCard('No tagged replies in this period.'));
+        row.appendChild(tc);
+        row.appendChild(chartCard('Channel split', 'WhatsApp and Mail tags.', 'cTagChannel'));
+        body.appendChild(row);
+
+        body.appendChild(chartCard('Tags per day', 'Service tags added each day.', 'cTagDay'));
+
+        const rc = cardOf('Latest tagged replies', 'Newest first, up to 100.');
+        rc.appendChild(d.recent.length
+          ? table([['Time'], ['Channel'], ['Contact'], ['Service'], ['Agent']],
+              d.recent.map((r) => [fmtDT(r.time), r.channel, r.contact, r.category, r.agentName || '-']))
+          : emptyCard('Nothing tagged yet.'));
+        body.appendChild(rc);
+
+        mk('cTagChannel', { type: 'doughnut', data: { labels: ['WhatsApp', 'Mail'], datasets: [{ data: [d.channels.WhatsApp || 0, d.channels.Mail || 0], backgroundColor: [css('--brand'), '#ef4b3c'], borderWidth: 0 }] }, options: doughnutOpts() });
+        mk('cTagDay', { type: 'bar', data: { labels: d.daily.map((x) => x.day.slice(5)), datasets: [{ label: 'Tags', data: d.daily.map((x) => x.count), backgroundColor: css('--brand'), borderRadius: 3 }] }, options: axisOpts('Date (MM-DD)', 'Tags') });
+      }).catch((err) => { if (alive()) failed(body, err); });
+    }
+
+    function exportTags() {
+      run('exportTagsCsv', TOKEN, filt()).then((r) => {
+        downloadCsv([r.csv], 'service_tags_' + ymd(new Date()) + '.csv');
+        toast('Downloaded ' + r.rows + ' rows.');
+      }).catch((e) => toast(e.message));
+    }
+
+    sel.addEventListener('change', load);
+    load();
+  }
+
   /* ---------- Calls ---------- */
   function pageCalls(v, arg, alive) {
     head(v, 'Calls', 'Every WhatsApp call: inbound and outbound, who took it and how long it lasted.', [button('Download CSV', 'btn ghost', () => exportCalls())]);
@@ -1249,13 +1272,13 @@
     try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Press Ctrl+C'; }
   }
   function pageLinks(v, arg, alive) {
-    head(v, 'Portal links', 'Open or copy the link of each page. Share the inbox link with agents and the call link with call agents.');
+    head(v, 'Portal links', 'Open or copy the link for the agent or admin portal.');
     const body = el('div'); body.appendChild(loading()); v.appendChild(body);
     run('getPortalLinks', TOKEN).then((l) => {
       if (!alive()) return;
       body.innerHTML = '';
       const c = el('div', 'card');
-      [['Inbox', 'For agents who answer WhatsApp messages.', l.chat], ['Call portal', 'For call agents: ringing alerts, inbound and outbound calls, call history.', l.calls], ['Admin portal', 'This portal. Administrators only.', l.admin]].forEach((x) => {
+      [['Agent portal', 'For agents who answer WhatsApp messages.', l.chat], ['Admin portal', 'For administrators only.', l.admin]].forEach((x) => {
         const r = el('div', 'linkRow');
         r.appendChild(el('h3', '', x[0]));
         r.appendChild(el('div', 'sub', x[1]));
@@ -1332,7 +1355,7 @@
       ['Agent performance', 'Replies, response speed and SLA for every agent.'],
       ['Chats', 'Every conversation with its handler. Click a chat to read it, reassign it or close it.'],
       ['Pending', 'Customers still waiting for a reply, longest first.'],
-      ['Mail', 'Alimail conversations saved from the MailMessages and MailThreads sheets.'],
+      ['Service tags', 'Which services agents gave in each WhatsApp reply.'],
       ['Calls', 'Call history with filters, the agent who handled each call and a CSV download.'],
       ['Settings', 'SLA target, whether the agent name is added to messages, alert email and the WhatsApp connection.'],
     ])); v.appendChild(a);

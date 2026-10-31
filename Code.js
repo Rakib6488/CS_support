@@ -5,6 +5,7 @@
  * Script Properties (Project Settings > Script properties):
  *   BRIDGE_URL     = https://your-node-server.com   (no trailing slash)
  *   BRIDGE_KEY     = a long random secret (must match BRIDGE_KEY on the Node server)
+ *   MAIL_KEY       = a long random secret (must match MAIL_KEY in alimail/.env)
  *   ADMIN_USER     = admin username (e.g. admin)
  *   ADMIN_PASSWORD = admin password
  *   ADMIN_NAME     = (optional) display name of the admin
@@ -162,23 +163,29 @@ function include(name) {
 }
 
 function renderPage_(file, title) {
-  return HtmlService.createTemplateFromFile(file).evaluate()
+  const template = HtmlService.createTemplateFromFile(file);
+  template.token = '';
+  return template.evaluate()
     .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 function doGet(e) {
   const page = e && e.parameter && e.parameter.page;
-  if (page === 'admin' || page === 'dashboard') return renderPage_('Dashboard', 'Admin portal');
-  if (page === 'calls') return renderPage_('Calls', 'WhatsApp calls');
-  return renderPage_('Index', 'WhatsApp & Mail Box');
+  if (page === 'admin' || page === 'dashboard') {
+    const template = HtmlService.createTemplateFromFile('Dashboard');
+    template.token = e && e.parameter && e.parameter.token ? String(e.parameter.token) : '';
+    return template.evaluate().setTitle('Admin portal').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+  if (page === 'calls') return renderPage_('Index', 'WhatsApp Support');
+  return renderPage_('Index', 'WhatsApp Support');
 }
 
-// The Node bridge posts all events here
-// The Node servers post all events here (WhatsApp bridge and Alimail mail sync)
+// The Node servers (WhatsApp bridge and Alimail) post all events here
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
+    if (d.type === 'mail_tag' || d.type === 'mail_categories') return tagPost_(d);
     if (String(d.type || '').indexOf('mail_') === 0) return mailPost_(d);
     if (d.key !== prop_('BRIDGE_KEY')) return json_({ ok: false, error: 'unauthorized' });
     if (d.type === 'message') {
@@ -609,13 +616,22 @@ function stripSignature_(body, agentName) {
   return body;
 }
 
-// The outgoing message comes back from the bridge via doPost and is saved to the Sheet with the agent name
-function sendMessage(token, chatId, text, quotedId) {
+// Replies carry service tags (required). The tags go to WpTags. The message is sent only if the tags are valid.
+function sendMessage(token, chatId, text, quotedId, tags) {
   const me = session_(token);
   assertChatAccess_(me, chatId);
   text = String(text || '').trim();
   if (!text) throw new Error('Message is empty');
+  const cleanTags = validateTags_(tags);
   const res = bridge_('/send', { to: chatId, text: signText_(me, chatId, text), quotedId: quotedId || '', agent: me.username, agentName: me.name });
+
+  if (res && res.id) {
+    try {
+      saveTags_('WhatsApp', chatId, chatId.split('@')[0], res.id, me.username, me.name, cleanTags);
+    } catch (e) {
+      console.error('Tag save failed: ' + e);
+    }
+  }
 
   // Save the sent message to the Sheet right now so it shows up without waiting for the bridge to
   // report it back. The bridge reports the same message later; saveMessage_ ignores that duplicate.
@@ -640,12 +656,13 @@ function sendMessage(token, chatId, text, quotedId) {
   return true;
 }
 
-function sendMedia(token, chatId, media, caption, quotedId) {
+function sendMedia(token, chatId, media, caption, quotedId, tags) {
   const me = session_(token);
   assertChatAccess_(me, chatId);
   if (!media || !media.data) throw new Error('No file attached');
   if (media.data.length > MAX_SEND_B64) throw new Error('File is larger than 10 MB');
-  bridge_('/send', {
+  const cleanTags = validateTags_(tags);
+  const res = bridge_('/send', {
     to: chatId,
     text: signText_(me, chatId, String(caption || '').trim()),
     quotedId: quotedId || '',
@@ -653,6 +670,13 @@ function sendMedia(token, chatId, media, caption, quotedId) {
     agent: me.username,
     agentName: me.name,
   });
+  if (res && res.id) {
+    try {
+      saveTags_('WhatsApp', chatId, chatId.split('@')[0], res.id, me.username, me.name, cleanTags);
+    } catch (e) {
+      console.error('Tag save failed: ' + e);
+    }
+  }
   return true;
 }
 
@@ -1149,11 +1173,11 @@ function getDashboardUrl(token) {
   return ScriptApp.getService().getUrl() + '?page=dashboard';
 }
 
-// Links to all three pages of this web app (admins only)
+// Links for the two supported portals (admins only)
 function getPortalLinks(token) {
   adminOnly_(token);
   const base = ScriptApp.getService().getUrl();
-  return { chat: base, dashboard: base + '?page=admin', admin: base + '?page=admin', calls: base + '?page=calls' };
+  return { chat: base, dashboard: base + '?page=admin', admin: base + '?page=admin' };
 }
 
 /* ---------- CSV export ---------- */
@@ -2073,14 +2097,13 @@ function saveSettings(token, s) {
   return true;
 }
 
-// Links for the menu: call portal for everyone, admin portal for admins, Alimail for everyone
+// Links for the agent and admin portals
 function getAppLinks(token) {
   const me = session_(token);
   const base = ScriptApp.getService().getUrl();
   return {
-    calls: base + '?page=calls',
     admin: me.role === 'admin' ? base + '?page=admin' : '',
-    mail: prop_('ALIMAIL_URL') || '',
+    chat: base,
   };
 }
 
@@ -2100,3 +2123,5 @@ function callsForChat_(chatId) {
   });
   return out;
 }
+
+// Service tags: list for the WhatsApp picker (see Tags.gs for the list itself)
