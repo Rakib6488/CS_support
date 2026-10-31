@@ -412,13 +412,15 @@
     e.preventDefault();
     const btn = $('loginBtn');
     btn.disabled = true; $('loginErr').textContent = '';
+    const adminTab = window.open('', '_blank');
     run('login', $('user').value, $('pw').value).then((r) => {
       if (r.role === 'caller') throw new Error('This account can only use the call portal.');
       if (r.role === 'admin') {
         $('pw').value = '';
         return run('getAppLinks', r.token).then((links) => {
           const url = links.admin + '&token=' + encodeURIComponent(r.token);
-          window.location.href = url;
+          if (adminTab) adminTab.location.href = url;
+          else window.open(url, '_blank');
         });
       }
       TOKEN = r.token; ME = r;
@@ -432,7 +434,7 @@
       timer = setInterval(() => tick(false), 4000);
       tick(true);
       loadHelpers();
-    }).catch((err) => { $('loginErr').textContent = err.message; })
+    }).catch((err) => { if (adminTab && !adminTab.closed) adminTab.close(); $('loginErr').textContent = err.message; })
       .then(() => { btn.disabled = false; });
   });
   $('logout').addEventListener('click', () => {

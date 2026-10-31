@@ -1,0 +1,8 @@
+node_modules/**
+whatsapp-bridge/**
+alimail/**
+apps-script-backup/**
+.git/**
+.env
+.env.*
+*.log
