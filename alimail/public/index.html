@@ -125,17 +125,38 @@
   #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .25s; pointer-events: none; font-size: 14px; z-index: 99; }
   #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  @media (max-width: 1000px) {
-    .app { grid-template-columns: 200px 1fr; }
-    .list { grid-column: 1 / -1; }
-    .detail { grid-column: 1 / -1; }
+  @media (max-width: 720px) {
+    .app { display: flex; }
+    .side { display: none; }
+    .list, .detail { width: 100%; min-width: 0; }
+    .detail { display: none; }
+    .app.show-detail .list { display: none; }
+    .app.show-detail .detail { display: flex; }
     .search { display: none; }
+    .folderBtn { display: inline-flex; }
+    .side.open { display: flex; position: fixed; left: 0; top: 56px; bottom: 0; width: 260px; z-index: 20; box-shadow: 8px 0 24px rgba(0,0,0,.18); }
+    .drawerBackdrop.on { display: block; position: fixed; inset: 56px 0 0; z-index: 19; background: rgba(0,0,0,.22); }
   }
+  .mobileOnly, .folderBtn { display: none; }
+  @media (max-width: 720px) { .mobileOnly, .folderBtn { display: inline-flex; } }
+  @media (max-width: 720px) {
+    .top { gap: 6px; padding: 0 8px; }
+    .brand { min-width: 0; flex: 1; font-size: 16px; }
+    .brand .tag, #waLink, #refresh { display: none; }
+  }
+  /* Keep controls readable even if a legacy deployment serves old icon bytes. */
+  .logo { font-size: 0; }
+  .logo::after { content: 'A'; font-size: 15px; }
+  #logout { font-size: 0; }
+  #logout::after { content: 'Log out'; font-size: 14px; }
+  #refresh2 { font-size: 0; }
+  #refresh2::after { content: 'Refresh'; font-size: 14px; }
 </style>
 </head>
 <body>
 
 <header class="top">
+  <button class="navlink folderBtn" id="folderBtn" type="button" aria-label="Open folders">Folders</button>
   <div class="brand"><div class="logo">✉</div>Alimail <span class="tag">Support</span></div>
   <div class="search"><input id="search" type="search" placeholder="Search mail"></div>
   <span class="spacer"></span>
@@ -184,6 +205,7 @@
 
   <section class="detail" id="detail"></section>
 </div>
+<div class="drawerBackdrop" id="drawerBackdrop" aria-hidden="true"></div>
 
 <div id="toast"></div>
 
@@ -280,6 +302,7 @@ function enter() {
 }
 
 function logout(msg) {
+  if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
   token = ''; sessionStorage.removeItem('am_token'); sessionStorage.removeItem('am_user');
   clearInterval(pollT);
   cur = null; detail = null; composing = false; threads = [];
@@ -291,18 +314,44 @@ $('logout').addEventListener('click', () => logout('You have been signed out.'))
 
 /* ---------- Folders and list ---------- */
 document.querySelectorAll('.fold').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+function closeFolders() {
+  $('app').querySelector('.side').classList.remove('open');
+  $('drawerBackdrop').classList.remove('on');
+  $('folderBtn').setAttribute('aria-expanded', 'false');
+}
+$('folderBtn').setAttribute('aria-expanded', 'false');
+$('folderBtn').addEventListener('click', () => {
+  const open = !$('app').querySelector('.side').classList.contains('open');
+  if (open) {
+    $('app').querySelector('.side').classList.add('open');
+    $('drawerBackdrop').classList.add('on');
+    $('folderBtn').setAttribute('aria-expanded', 'true');
+  } else closeFolders();
+});
+$('drawerBackdrop').addEventListener('click', closeFolders);
 
 function setView(v) {
   view = v; cur = null; detail = null; composing = false; lastDetailSig = '';
+  closeFolders();
   $('search').value = ''; search = '';
   renderDetail();
   loadList().catch((e) => toast(e.message));
 }
 
 async function loadList() {
-  const r = await api('/api/threads?view=' + view);
-  threads = r.items; counts = r.counts;
-  renderSide(); renderList();
+  const box = $('items');
+  box.setAttribute('aria-busy', 'true');
+  box.innerHTML = '<div class="empty">Loading mail...</div>';
+  try {
+    const r = await api('/api/threads?view=' + view);
+    threads = r.items; counts = r.counts;
+    renderSide(); renderList();
+  } catch (e) {
+    box.textContent = 'Could not load mail. Try again.';
+    throw e;
+  } finally {
+    box.removeAttribute('aria-busy');
+  }
 }
 
 function renderSide() {
@@ -360,6 +409,7 @@ function refreshAll() {
 /* ---------- Reading a mail (thread) ---------- */
 function selectThread(id) {
   cur = id; composing = false; detail = null; lastDetailSig = '';
+  $('app').classList.add('show-detail');
   renderList(); renderSide();
   $('detail').innerHTML = '';
   $('detail').appendChild(el('div', 'empty big', 'Loading...'));
@@ -389,14 +439,17 @@ function renderDetail() {
   if (!cur || !detail) { box.appendChild(el('div', 'empty big', 'Select a mail to read it, or press Compose.')); return; }
 
   const bar = el('div', 'toolbar');
-  const replyBtn = el('button', 'tbtn', '↩ Reply');
+  const backBtn = el('button', 'tbtn mobileOnly', 'Back');
+  backBtn.addEventListener('click', backToList);
+  bar.appendChild(backBtn);
+  const replyBtn = el('button', 'tbtn', 'Reply');
   replyBtn.addEventListener('click', () => {
     const t = box.querySelector('#replyBox textarea');
     if (t) t.focus();
   });
   bar.appendChild(replyBtn);
   const open = detail.status === 'open';
-  const doneBtn = el('button', 'tbtn', open ? '✓ Mark as Completed' : '↺ Reopen');
+  const doneBtn = el('button', 'tbtn', open ? 'Mark as Completed' : 'Reopen');
   doneBtn.addEventListener('click', toggleStatus);
   bar.appendChild(doneBtn);
   box.appendChild(bar);
@@ -473,7 +526,7 @@ function composer(o) {
   });
 
   const foot = el('div', 'cfoot');
-  const send = el('button', 'btn', '➤ Send');
+  const send = el('button', 'btn', 'Send');
   send.type = 'button';
   foot.appendChild(send);
   foot.appendChild(el('span', 'hint', 'Ctrl + Enter to send'));
@@ -507,7 +560,7 @@ function composer(o) {
     } catch (e) {
       toast(e.message);
     } finally {
-      send.disabled = false; send.textContent = '➤ Send';
+    send.disabled = false; send.textContent = 'Send';
     }
   };
   send.addEventListener('click', doSend);
@@ -525,8 +578,15 @@ function composer(o) {
 
 $('composeBtn').addEventListener('click', () => {
   composing = true; cur = null; detail = null; lastDetailSig = '';
+  $('app').classList.add('show-detail');
   renderList(); renderSide(); renderDetail();
 });
+
+function backToList() {
+  composing = false; cur = null; detail = null; lastDetailSig = '';
+  $('app').classList.remove('show-detail');
+  renderList(); renderSide(); renderDetail();
+}
 
 /* ---------- Service tags (required on every reply) ---------- */
 function loadTagCats() {

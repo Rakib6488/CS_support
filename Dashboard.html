@@ -211,7 +211,7 @@
   /* ==========================================================================
      State
      ========================================================================== */
-  const URL_TOKEN = <?= JSON.stringify(token) ?>;
+  const URL_TOKEN = <?= JSON.stringify(token) ?> || new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
   let TOKEN = '', DATA = null, dataPromise = null, TEAM = null;
   let view = { id: 'overview', arg: '' }, renderSeq = 0, editing = null;
   const charts = {};
@@ -301,6 +301,7 @@
      Single-page authentication and sign out
      ========================================================================== */
   function logout(msg) {
+    if (TOKEN) google.script.run.signOut(TOKEN);
     TOKEN = ''; DATA = null; dataPromise = null; TEAM = null;
     clearInterval(refreshBridge.timer); refreshBridge.timer = null;
     destroyCharts();

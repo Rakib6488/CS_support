@@ -13,9 +13,12 @@ const APP_USER = (process.env.ALIMAIL_USER || 'admin').toLowerCase();
 const APP_PASS = process.env.ALIMAIL_PASSWORD;
 const SENT_FOLDER = process.env.SENT_FOLDER || config.sentFolder;
 const WHATSAPP_URL = process.env.WHATSAPP_URL || config.whatsappUrl;
-const LIST_LIMIT = config.listLimit;
+// 0 means all messages. Set MAIL_LIST_LIMIT for a deliberate performance cap.
+const LIST_LIMIT = Number(process.env.MAIL_LIST_LIMIT || config.listLimit || 0);
 const SESSION_MS = config.sessionHours * 3600 * 1000;
 const INBOX = 'INBOX';
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 5;
 
 // Google Sheet sync (Apps Script web app, same /exec URL as the WhatsApp portal)
 const GAS_URL = process.env.GAS_URL || '';
@@ -33,7 +36,12 @@ function loadState() {
     return { threads: s.threads || {} };
   } catch (e) { return { threads: {} }; }
 }
-function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
+function saveState(s) {
+  // Replace atomically so a process interruption cannot leave truncated JSON.
+  const tmp = STATE_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
+  fs.renameSync(tmp, STATE_FILE);
+}
 
 /* ---------- Mail transport and IMAP ---------- */
 const transporter = nodemailer.createTransport({
@@ -152,7 +160,7 @@ async function listBox(c, box) {
   const lock = await c.getMailboxLock(box);
   try {
     const all = await c.search({ all: true }, { uid: true });
-    const uids = all.slice(-LIST_LIMIT);
+    const uids = LIST_LIMIT > 0 ? all.slice(-LIST_LIMIT) : all;
     const out = [];
     if (!uids.length) return out;
     for await (const m of c.fetch(uids.join(','), {
@@ -302,6 +310,7 @@ async function buildThreads() {
 
 /* ---------- App ---------- */
 const sessions = new Map();
+const loginFailures = new Map();
 function auth(req, res, next) {
   const t = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
   const s = sessions.get(t);
@@ -333,12 +342,31 @@ app.get('/api/config', (req, res) => res.json({ whatsappUrl: WHATSAPP_URL }));
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!APP_PASS) return res.status(500).json({ error: 'ALIMAIL_PASSWORD is not set in .env' });
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const attempt = loginFailures.get(ip);
+  if (attempt && now - attempt.started < LOGIN_WINDOW_MS && attempt.count >= LOGIN_MAX_FAILURES) {
+    return res.status(429).json({ error: 'Too many failed attempts. Try again later.' });
+  }
   if (String(username || '').toLowerCase() !== APP_USER || password !== APP_PASS) {
+    const current = loginFailures.get(ip);
+    if (!current || now - current.started >= LOGIN_WINDOW_MS) {
+      loginFailures.set(ip, { started: now, count: 1 });
+    } else {
+      current.count++;
+    }
     return res.status(401).json({ error: 'Wrong username or password' });
   }
+  loginFailures.delete(ip);
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, { user: APP_USER, at: Date.now() });
   res.json({ token, whatsappUrl: WHATSAPP_URL });
+});
+
+app.post('/api/logout', auth, (req, res) => {
+  const t = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
+  sessions.delete(t);
+  res.json({ ok: true });
 });
 
 // view: open | unread | closed | all

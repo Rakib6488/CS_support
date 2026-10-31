@@ -21,6 +21,10 @@
 const MSG_SHEET = 'Messages';
 const CHAT_SHEET = 'Chats';
 const AGENT_SHEET = 'Agents';
+const SESSION_SHEET = 'Sessions';
+const SESSION_HEADERS = ['TokenHash', 'Username', 'Name', 'Role', 'Created', 'Expires', 'Revoked'];
+const MSG_INDEX_SHEET = 'MessageIndex';
+const MSG_INDEX_HEADERS = ['MsgId', 'Row'];
 const STATS_SHEET = 'AgentStats';
 
 const MSG_HEADERS = ['Time', 'ChatId', 'Direction', 'Agent', 'AgentName', 'ChatName', 'IsGroup',
@@ -79,6 +83,8 @@ function sheet_(name, headers) {
     if (name === CHAT_SHEET) textCols_(sh, [1, 2, 3, 6, 7, 8, 9, 10]);
     if (name === QR_SHEET) textCols_(sh, [1, 2]);
     if (name === AGENT_SHEET) textCols_(sh, [1, 2, 3, 4, 5, 6]);
+    if (name === SESSION_SHEET) textCols_(sh, [1, 2, 3, 4, 7]);
+    if (name === MSG_INDEX_SHEET) textCols_(sh, [1, 2]);
     if (name === CALL_SHEET) textCols_(sh, [1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 16]);
   }
   return sh;
@@ -129,6 +135,8 @@ function setup() {
   sheet_(MSG_SHEET, MSG_HEADERS);
   sheet_(CHAT_SHEET, CHAT_HEADERS);
   sheet_(AGENT_SHEET, AGENT_HEADERS);
+  sheet_(SESSION_SHEET, SESSION_HEADERS);
+  sheet_(MSG_INDEX_SHEET, MSG_INDEX_HEADERS);
   callSheet_();
   sheet_(QR_SHEET, QR_HEADERS);
   ensureChatCols_();
@@ -249,10 +257,11 @@ function saveMessage_(d) {
     const time = new Date(d.ts * 1000);
     const dir = d.fromMe ? 'out' : 'in';
 
-    appendRow_(sheet_(MSG_SHEET, MSG_HEADERS), [
+    const msgRow = appendRow_(sheet_(MSG_SHEET, MSG_HEADERS), [
       time, d.chatId, dir, d.agent || '', d.agentName || '', d.chatName || '', d.isGroup ? 'yes' : '',
       d.sender || '', d.body || '', d.id, mtype, mname, fileId, d.fromMe ? 1 : '', d.quoted || '',
     ]);
+    appendRow_(sheet_(MSG_INDEX_SHEET, MSG_INDEX_HEADERS), [String(d.id), msgRow]);
 
     ensureChatCols_();
     const cs = sheet_(CHAT_SHEET, CHAT_HEADERS);
@@ -295,17 +304,25 @@ function saveMessage_(d) {
   }
 }
 
-// Finds the row of a MsgId among the last 500 messages
+// Finds the row of a MsgId across the full message sheet.
 function findRecentRow_(id) {
   const ms = sheet_(MSG_SHEET, MSG_HEADERS);
   const last = ms.getLastRow();
   if (last < 2) return 0;
-  const start = Math.max(2, last - 499);
-  const ids = ms.getRange(start, C.MSGID + 1, last - start + 1, 1).getValues();
-  for (let i = ids.length - 1; i >= 0; i--) {
-    if (ids[i][0] === id) return start + i;
+  const ix = sheet_(MSG_INDEX_SHEET, MSG_INDEX_HEADERS);
+  const ixLast = ix.getLastRow();
+  if (ixLast >= 2) {
+    const hit = ix.getRange(1, 1, ixLast, 1).createTextFinder(String(id)).matchEntireCell(true).findNext();
+    if (hit) {
+      const row = Number(ix.getRange(hit.getRow(), 2).getValue()) || 0;
+      if (row >= 2 && row <= last) return row;
+    }
   }
-  return 0;
+  const found = ms.getRange(1, C.MSGID + 1, last, 1)
+    .createTextFinder(String(id)).matchEntireCell(true).findNext();
+  if (!found) return 0;
+  appendRow_(ix, [String(id), found.getRow()]);
+  return found.getRow();
 }
 
 function updateAck_(id, ack) {
@@ -338,6 +355,39 @@ function saveStatus_(d) {
 function hash_(salt, pw) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ':' + pw, Utilities.Charset.UTF_8);
   return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function sessionHash_(token) { return hash_('session', String(token || '')); }
+
+function persistSession_(token, user) {
+  const sh = sheet_(SESSION_SHEET, SESSION_HEADERS);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    appendRow_(sh, [sessionHash_(token), user.username, user.name, user.role,
+      new Date(), new Date(Date.now() + 21600000), 'no']);
+  } finally { lock.releaseLock(); }
+}
+
+// Keep the persistent session table bounded. Cleanup is intentionally capped
+// so a login never spends the full Apps Script execution on maintenance.
+function cleanupSessions_() {
+  const sh = sheet_(SESSION_SHEET, SESSION_HEADERS);
+  const last = sh.getLastRow();
+  if (last < 2) return;
+  const rows = sh.getRange(2, 1, last - 1, SESSION_HEADERS.length).getValues();
+  const remove = [];
+  const now = Date.now();
+  rows.forEach(function (r, i) {
+    if (remove.length >= 200) return;
+    if (String(r[6]).toLowerCase() === 'yes' || (r[5] instanceof Date && r[5].getTime() <= now)) remove.push(i + 2);
+  });
+  if (!remove.length) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    for (let i = remove.length - 1; i >= 0; i--) sh.deleteRow(remove[i]);
+  } finally { lock.releaseLock(); }
 }
 
 function agentRows_() {
@@ -379,18 +429,34 @@ function login(username, password) {
     throw new Error('Incorrect username or password');
   }
   cache.remove(failKey);
+  cleanupSessions_();
   const token = Utilities.getUuid() + Utilities.getUuid();
   cache.put('tok_' + token, JSON.stringify(user), 21600); // 6 hours
+  persistSession_(token, user);
   return { token: token, username: user.username, name: user.name, role: user.role };
 }
 
 // area: 'chat' (default) or 'calls'. Call agents (role 'caller') may only use the call portal.
 function session_(token, area) {
   const cache = CacheService.getScriptCache();
+  let user = null;
   const s = cache.get('tok_' + token);
-  if (!s) throw new Error('SESSION_EXPIRED');
-  const user = JSON.parse(s);
+  if (s) user = JSON.parse(s);
+  if (!user) {
+    const sh = sheet_(SESSION_SHEET, SESSION_HEADERS);
+    const found = sh.getRange(1, 1, sh.getLastRow(), 1)
+      .createTextFinder(sessionHash_(token)).matchEntireCell(true).findNext();
+    if (!found) throw new Error('SESSION_EXPIRED');
+    const r = sh.getRange(found.getRow(), 1, 1, SESSION_HEADERS.length).getValues()[0];
+    if (String(r[6]).toLowerCase() === 'yes' || !(r[5] instanceof Date) || r[5].getTime() <= Date.now()) {
+      throw new Error('SESSION_EXPIRED');
+    }
+    user = { username: String(r[1]), name: String(r[2]), role: String(r[3]) };
+    cache.put('tok_' + token, JSON.stringify(user), Math.max(1, Math.min(21600, Math.ceil((r[5].getTime() - Date.now()) / 1000))));
+  }
   if (cache.get('revoked_' + user.username)) throw new Error('SESSION_EXPIRED');
+  const agent = agentRows_().filter(function (a) { return a.username === user.username; })[0];
+  if (agent && !agent.active) throw new Error('SESSION_EXPIRED');
   if (user.role === 'caller' && area !== 'calls') throw new Error('This account can only use the call portal');
   return user;
 }
@@ -530,8 +596,10 @@ function markRead(token, chatId) {
 }
 
 // Reads media from Drive in chunks (so large videos work). Only files in our media folder are allowed.
-function getMedia(token, fileId, index) {
-  session_(token);
+function getMedia(token, fileId, index, chatId) {
+  const me = session_(token);
+  if (!chatId || !allowedChat_(chatId)) throw new Error('Invalid chat');
+  assertChatAccess_(me, chatId);
   const file = DriveApp.getFileById(fileId);
   const folderId = mediaFolder_().getId();
   let ok = false;
@@ -540,6 +608,23 @@ function getMedia(token, fileId, index) {
     if (parents.next().getId() === folderId) { ok = true; break; }
   }
   if (!ok) throw new Error('Not allowed');
+
+  // A valid media-folder file ID is not enough: make sure this file belongs to
+  // a message in the chat the current agent is allowed to view.
+  const ms = sheet_(MSG_SHEET, MSG_HEADERS);
+  const last = ms.getLastRow();
+  let belongsToChat = false;
+  if (last >= 2) {
+    const rows = ms.getRange(2, C.CHAT + 1, last - 1, 1).getValues();
+    const files = ms.getRange(2, C.FILE + 1, last - 1, 1).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === chatId && String(files[i][0]) === fileId) {
+        belongsToChat = true;
+        break;
+      }
+    }
+  }
+  if (!belongsToChat) throw new Error('Media is not part of this chat');
 
   const size = file.getSize();
   if (size > MAX_VIEW_MEDIA) {
@@ -1974,7 +2059,12 @@ function distributeWaitingChats_() {
 // Called when an agent logs out, so they stop receiving new chats right away
 function signOut(token) {
   const me = session_(token);
+  CacheService.getScriptCache().remove('tok_' + token);
   CacheService.getScriptCache().remove(presenceKey_(me.username));
+  const sh = sheet_(SESSION_SHEET, SESSION_HEADERS);
+  const found = sh.getRange(1, 1, sh.getLastRow(), 1)
+    .createTextFinder(sessionHash_(token)).matchEntireCell(true).findNext();
+  if (found) sh.getRange(found.getRow(), 7).setValue('yes');
   return true;
 }
 

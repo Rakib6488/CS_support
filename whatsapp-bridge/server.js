@@ -37,6 +37,12 @@ function gas(payload) {
     maxRedirects: 5,
     maxBodyLength: Infinity,
     maxContentLength: Infinity,
+  }).then((res) => {
+    const data = res && res.data;
+    if (!data || data.ok !== true) {
+      throw new Error((data && data.error) || 'Apps Script rejected the request');
+    }
+    return res;
   });
 }
 
@@ -245,11 +251,13 @@ client.on('incoming_call', onIncomingCall);
 client.on('call', onIncomingCall); // older library versions use this event name
 
 const app = express();
-app.use(express.json({ limit: '60mb' }));
+// Authenticate before parsing large JSON bodies so unauthenticated requests
+// cannot force the process to allocate the 60 MB body limit.
 app.use((req, res, next) => {
   if (req.headers['x-api-key'] !== BRIDGE_KEY) return res.status(401).json({ error: 'unauthorized' });
   next();
 });
+app.use(express.json({ limit: '60mb' }));
 
 app.get('/status', (req, res) => res.json(state));
 

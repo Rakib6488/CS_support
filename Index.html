@@ -418,7 +418,9 @@
       if (r.role === 'admin') {
         $('pw').value = '';
         return run('getAppLinks', r.token).then((links) => {
-          const url = links.admin + '&token=' + encodeURIComponent(r.token);
+          // Keep the session token in the URL fragment. Fragments are not sent
+          // in HTTP Referer headers or normal server access logs.
+          const url = links.admin + '#token=' + encodeURIComponent(r.token);
           if (adminTab) adminTab.location.href = url;
           else window.open(url, '_blank');
         });
@@ -924,10 +926,10 @@
     return out;
   }
   // Fetches a large file in chunks, then builds a Blob
-  function fetchMedia(fileId, hint) {
+  function fetchMedia(fileId, hint, chatId) {
     const parts = [];
     function next(i) {
-      return run('getMedia', TOKEN, fileId, i).then((r) => {
+      return run('getMedia', TOKEN, fileId, i, chatId).then((r) => {
         if (r.tooLarge) return r;
         parts.push(b64ToBytes(r.data));
         if (i + 1 < r.total) return next(i + 1).then((x) => x);
@@ -938,17 +940,17 @@
     }
     return next(0);
   }
-  function loadMedia(fileId, hint) {
+  function loadMedia(fileId, hint, chatId) {
     if (mediaCache[fileId]) return Promise.resolve(mediaCache[fileId]);
     if (mediaPending[fileId]) return mediaPending[fileId];
-    mediaPending[fileId] = new Promise((res, rej) => { mq.push({ fileId, hint, res, rej }); pump(); });
+    mediaPending[fileId] = new Promise((res, rej) => { mq.push({ fileId, hint, chatId, res, rej }); pump(); });
     return mediaPending[fileId];
   }
   function pump() {
     while (mActive < 2 && mq.length) {
       const j = mq.shift();
       mActive++;
-      fetchMedia(j.fileId, j.hint).then((r) => {
+      fetchMedia(j.fileId, j.hint, j.chatId).then((r) => {
         mediaCache[j.fileId] = r;
         j.res(r);
       }).catch(j.rej).then(() => { mActive--; delete mediaPending[j.fileId]; pump(); });
@@ -964,7 +966,17 @@
     function render(r) {
       box.textContent = '';
       if (r.tooLarge) {
-        box.textContent = (m.mname || 'File') + ' is too large (' + (r.size / 1048576).toFixed(1) + ' MB) to preview here. It is saved in the "WhatsApp Portal Media" folder in Google Drive.';
+        box.textContent = '';
+        box.appendChild(el('div', '', (m.mname || 'File') + ' is too large (' + (r.size / 1048576).toFixed(1) + ' MB) to preview here.'));
+        if (r.url) {
+          const a = document.createElement('a');
+          a.href = r.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.className = 'dl';
+          a.textContent = 'Open in Google Drive';
+          box.appendChild(a);
+        }
         return;
       }
       if (isImage) {
@@ -989,7 +1001,7 @@
 
     function start() {
       box.textContent = isVideo ? 'Loading video, large files can take a few seconds...' : 'Loading...';
-      loadMedia(m.fileId, t).then(render).catch(() => {
+      loadMedia(m.fileId, t, current && current.chatId).then(render).catch(() => {
         box.textContent = '';
         const b = el('button', 'iconBtn', 'Could not load. Try again');
         b.type = 'button';
